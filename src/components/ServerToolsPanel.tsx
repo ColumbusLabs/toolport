@@ -385,6 +385,16 @@ function ResourcesPanel({ serverId }: { serverId: string }) {
   const [result, setResult] = useState<unknown>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Id of the read that owns the result area. Picking another resource or unmounting
+  // bumps it, so a late read can't replace the current one or clear its busy state.
+  const readSeq = useRef(0);
+
+  useEffect(() => {
+    const seq = readSeq;
+    return () => {
+      seq.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -409,16 +419,18 @@ function ResourcesPanel({ serverId }: { serverId: string }) {
   }
 
   async function read(uri: string) {
+    const myId = ++readSeq.current;
     setSelected(uri);
     setReading(true);
     setResult(null);
     setReadError(null);
     try {
-      setResult(await readResource(serverId, uri));
+      const contents = await readResource(serverId, uri);
+      if (readSeq.current === myId) setResult(contents);
     } catch (e) {
-      setReadError(String(e));
+      if (readSeq.current === myId) setReadError(String(e));
     } finally {
-      setReading(false);
+      if (readSeq.current === myId) setReading(false);
     }
   }
 
@@ -499,6 +511,17 @@ function PromptsPanel({ serverId }: { serverId: string }) {
   const [result, setResult] = useState<unknown>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Id of the prompt request that owns the result area. Changing the selection or
+  // unmounting bumps it, so a late response can't replace the current one or clear its
+  // busy state.
+  const runSeq = useRef(0);
+
+  useEffect(() => {
+    const seq = runSeq;
+    return () => {
+      seq.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -525,10 +548,13 @@ function PromptsPanel({ serverId }: { serverId: string }) {
   const prompt = prompts?.find((p) => p.name === selected) ?? null;
 
   useEffect(() => {
+    // A new selection takes over the result area, so drop any request still in flight.
+    runSeq.current += 1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset prompt arguments and results when the selection changes.
     setArgs({});
     setResult(null);
     setRunError(null);
+    setRunning(false);
   }, [selected]);
 
   async function run() {
@@ -547,15 +573,17 @@ function PromptsPanel({ serverId }: { serverId: string }) {
       );
       return;
     }
+    const myId = ++runSeq.current;
     setRunning(true);
     setResult(null);
     setRunError(null);
     try {
-      setResult(await getPrompt(serverId, prompt.name, args));
+      const messages = await getPrompt(serverId, prompt.name, args);
+      if (runSeq.current === myId) setResult(messages);
     } catch (e) {
-      setRunError(String(e));
+      if (runSeq.current === myId) setRunError(String(e));
     } finally {
-      setRunning(false);
+      if (runSeq.current === myId) setRunning(false);
     }
   }
 

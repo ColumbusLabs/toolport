@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Registry } from "@/lib/types";
 import { ServerToolsPanel } from "./ServerToolsPanel";
@@ -256,5 +256,186 @@ describe("server Tools panel", () => {
     pending.resolve([{ name: "late-prompt" }]);
     await Promise.resolve();
     expect(screen.queryByText("late-prompt")).not.toBeInTheDocument();
+  });
+
+  const twoResources = [
+    { uri: "file:///a.txt", name: "a.txt" },
+    { uri: "file:///b.txt", name: "b.txt" },
+  ];
+  const twoPrompts = [
+    { name: "alpha-prompt", description: "First prompt" },
+    { name: "beta-prompt", description: "Second prompt" },
+  ];
+
+  function renderPanel() {
+    return render(
+      <ServerToolsPanel
+        serverId="alpha"
+        registry={registry}
+        onRegistryChange={vi.fn()}
+      />,
+    );
+  }
+
+  it("keeps a resource read with the selection that requested it", async () => {
+    const readA = deferred<unknown>();
+    const readB = deferred<unknown>();
+    api.listServerResources.mockResolvedValue(twoResources);
+    api.readResource.mockImplementation((_id: string, uri: string) =>
+      uri === "file:///a.txt" ? readA.promise : readB.promise,
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Resources" }));
+    fireEvent.click(await screen.findByRole("button", { name: /a\.txt/ }));
+    fireEvent.click(screen.getByRole("button", { name: /b\.txt/ }));
+    expect(api.readResource).toHaveBeenNthCalledWith(1, "alpha", "file:///a.txt");
+    expect(api.readResource).toHaveBeenNthCalledWith(2, "alpha", "file:///b.txt");
+    expect(screen.getByRole("button", { name: /b\.txt/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    readB.resolve("contents of B");
+    expect(await screen.findByText("contents of B")).toBeVisible();
+    readA.resolve("contents of A");
+    await act(async () => {
+      await readA.promise;
+    });
+    expect(screen.queryByText("contents of A")).not.toBeInTheDocument();
+    expect(screen.getByText("contents of B")).toBeVisible();
+  });
+
+  it("does not let a stale resource read error or finish the current read", async () => {
+    const readA = deferred<unknown>();
+    const readB = deferred<unknown>();
+    api.listServerResources.mockResolvedValue(twoResources);
+    api.readResource.mockImplementation((_id: string, uri: string) =>
+      uri === "file:///a.txt" ? readA.promise : readB.promise,
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Resources" }));
+    fireEvent.click(await screen.findByRole("button", { name: /a\.txt/ }));
+    fireEvent.click(screen.getByRole("button", { name: /b\.txt/ }));
+
+    readA.reject(new Error("read A failed"));
+    await act(async () => {
+      await readA.promise.catch(() => {});
+    });
+    expect(screen.queryByText("Error: read A failed")).not.toBeInTheDocument();
+    expect(screen.getByText("Reading resource…")).toBeVisible();
+
+    readB.resolve("contents of B");
+    expect(await screen.findByText("contents of B")).toBeVisible();
+    expect(screen.queryByText("Reading resource…")).not.toBeInTheDocument();
+  });
+
+  it("ignores a resource read that finishes after the panel unmounts", async () => {
+    const readA = deferred<unknown>();
+    api.listServerResources.mockResolvedValue(twoResources);
+    api.readResource.mockReturnValueOnce(readA.promise);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const view = renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Resources" }));
+    fireEvent.click(await screen.findByRole("button", { name: /a\.txt/ }));
+    view.unmount();
+    readA.resolve("contents of A");
+    await act(async () => {
+      await readA.promise;
+    });
+    expect(screen.queryByText("contents of A")).not.toBeInTheDocument();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
+  it("keeps a prompt result with the selection that requested it", async () => {
+    const runA = deferred<unknown>();
+    const runB = deferred<unknown>();
+    api.listServerPrompts.mockResolvedValue(twoPrompts);
+    api.getPrompt.mockImplementation((_id: string, name: string) =>
+      name === "alpha-prompt" ? runA.promise : runB.promise,
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Prompts" }));
+    fireEvent.click(await screen.findByRole("button", { name: /First prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+    expect(screen.getByRole("button", { name: "Getting…" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Second prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+    expect(api.getPrompt).toHaveBeenNthCalledWith(1, "alpha", "alpha-prompt", {});
+    expect(api.getPrompt).toHaveBeenNthCalledWith(2, "alpha", "beta-prompt", {});
+
+    runB.resolve("messages for B");
+    expect(await screen.findByText("messages for B")).toBeVisible();
+    runA.resolve("messages for A");
+    await act(async () => {
+      await runA.promise;
+    });
+    expect(screen.queryByText("messages for A")).not.toBeInTheDocument();
+    expect(screen.getByText("messages for B")).toBeVisible();
+  });
+
+  it("does not let a stale prompt error or finish the current request", async () => {
+    const runA = deferred<unknown>();
+    const runB = deferred<unknown>();
+    api.listServerPrompts.mockResolvedValue(twoPrompts);
+    api.getPrompt.mockImplementation((_id: string, name: string) =>
+      name === "alpha-prompt" ? runA.promise : runB.promise,
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Prompts" }));
+    fireEvent.click(await screen.findByRole("button", { name: /First prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: /Second prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+
+    runA.reject(new Error("prompt A failed"));
+    await act(async () => {
+      await runA.promise.catch(() => {});
+    });
+    expect(screen.queryByText("Error: prompt A failed")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Getting…" })).toBeDisabled();
+
+    runB.resolve("messages for B");
+    expect(await screen.findByText("messages for B")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Get prompt" })).toBeEnabled();
+  });
+
+  it("drops a pending prompt when the selection changes without a new request", async () => {
+    const runA = deferred<unknown>();
+    api.listServerPrompts.mockResolvedValue(twoPrompts);
+    api.getPrompt.mockReturnValueOnce(runA.promise);
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Prompts" }));
+    fireEvent.click(await screen.findByRole("button", { name: /First prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: /Second prompt/ }));
+    expect(screen.getByRole("button", { name: "Get prompt" })).toBeEnabled();
+
+    runA.resolve("messages for A");
+    await act(async () => {
+      await runA.promise;
+    });
+    expect(screen.queryByText("messages for A")).not.toBeInTheDocument();
+    expect(api.getPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a prompt that finishes after the panel unmounts", async () => {
+    const runA = deferred<unknown>();
+    api.listServerPrompts.mockResolvedValue(twoPrompts);
+    api.getPrompt.mockReturnValueOnce(runA.promise);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const view = renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Prompts" }));
+    fireEvent.click(await screen.findByRole("button", { name: /First prompt/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get prompt" }));
+    view.unmount();
+    runA.reject(new Error("prompt A failed"));
+    await act(async () => {
+      await runA.promise.catch(() => {});
+    });
+    expect(screen.queryByText("Error: prompt A failed")).not.toBeInTheDocument();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 });
