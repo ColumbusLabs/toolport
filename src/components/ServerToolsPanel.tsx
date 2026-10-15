@@ -385,13 +385,9 @@ function ResourcesPanel({ serverId }: { serverId: string }) {
   const [result, setResult] = useState<unknown>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const listRequestRef = useRef(0);
-  const listInFlightRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
-    const requestId = ++listRequestRef.current;
-    listInFlightRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the previous server resources before starting its replacement request.
     setLoading(true);
     setError(null);
@@ -400,26 +396,15 @@ function ResourcesPanel({ serverId }: { serverId: string }) {
     setResult(null);
     setReadError(null);
     listServerResources(serverId)
-      .then((r) => {
-        if (alive && requestId === listRequestRef.current) setResources(r);
-      })
-      .catch((e) => {
-        if (alive && requestId === listRequestRef.current) setError(String(e));
-      })
-      .finally(() => {
-        if (alive && requestId === listRequestRef.current) {
-          listInFlightRef.current = false;
-          setLoading(false);
-        }
-      });
+      .then((r) => alive && setResources(r))
+      .catch((e) => alive && setError(String(e)))
+      .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
   }, [serverId, reloadKey]);
 
   function retryList() {
-    if (listInFlightRef.current) return;
-    listInFlightRef.current = true;
     setReloadKey((n) => n + 1);
   }
 
@@ -514,13 +499,9 @@ function PromptsPanel({ serverId }: { serverId: string }) {
   const [result, setResult] = useState<unknown>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const listRequestRef = useRef(0);
-  const listInFlightRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
-    const requestId = ++listRequestRef.current;
-    listInFlightRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the previous server prompts before starting its replacement request.
     setLoading(true);
     setError(null);
@@ -529,26 +510,15 @@ function PromptsPanel({ serverId }: { serverId: string }) {
     setResult(null);
     setRunError(null);
     listServerPrompts(serverId)
-      .then((p) => {
-        if (alive && requestId === listRequestRef.current) setPrompts(p);
-      })
-      .catch((e) => {
-        if (alive && requestId === listRequestRef.current) setError(String(e));
-      })
-      .finally(() => {
-        if (alive && requestId === listRequestRef.current) {
-          listInFlightRef.current = false;
-          setLoading(false);
-        }
-      });
+      .then((p) => alive && setPrompts(p))
+      .catch((e) => alive && setError(String(e)))
+      .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
   }, [serverId, reloadKey]);
 
   function retryList() {
-    if (listInFlightRef.current) return;
-    listInFlightRef.current = true;
     setReloadKey((n) => n + 1);
   }
 
