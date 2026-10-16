@@ -3,7 +3,15 @@ import { referenceProvider } from "@/lib/secretRefs";
 import { toastError } from "@/lib/toast";
 import { isPersonalSync } from "@/lib/personalSync";
 import { invoke } from "@tauri-apps/api/core";
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import {
   ChevronDown,
   Copy,
@@ -72,6 +80,12 @@ const STATUS_ARIA_LABEL: Record<Status, SourceMessage> = {
   error: msg("Connection error"),
 };
 
+const DETAIL_TABS = ["overview", "tools"] as const;
+type DetailTab = (typeof DETAIL_TABS)[number];
+
+const PANEL =
+  "flex flex-col gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
 const ACTION =
   "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
@@ -89,7 +103,30 @@ export function RegistryServerRow({
 }: Props) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const [detailTab, setDetailTab] = useState<"overview" | "tools">("overview");
+  const [detailTab, setDetailTab] = useState<DetailTab>("overview");
+  // Tab and panel IDs are per row, so two expanded rows never share them.
+  const detailId = useId();
+  const tabId = (tab: DetailTab) => `${detailId}-${tab}-tab`;
+  const panelId = (tab: DetailTab) => `${detailId}-${tab}-panel`;
+  const tabRefs = useRef<Partial<Record<DetailTab, HTMLButtonElement | null>>>({});
+  // One tab stop for the tablist: arrows move between tabs (wrapping), Home and
+  // End jump to the ends, and selection follows focus.
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: DetailTab) => {
+    const count = DETAIL_TABS.length;
+    const index = DETAIL_TABS.indexOf(tab);
+    const targets: Partial<Record<string, number>> = {
+      ArrowRight: (index + 1) % count,
+      ArrowLeft: (index - 1 + count) % count,
+      Home: 0,
+      End: count - 1,
+    };
+    const nextIndex = targets[event.key];
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const next = DETAIL_TABS[nextIndex];
+    setDetailTab(next);
+    tabRefs.current[next]?.focus();
+  };
   useEffect(() => {
     if (openTools) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Open the requested tools tab when navigation selects this row.
@@ -340,28 +377,60 @@ export function RegistryServerRow({
             aria-label={translate("{value0} details", { value0: server.name })}
             className="flex gap-1 border-b pb-2"
           >
-            {(["overview", "tools"] as const).map((tab) => (
+            {DETAIL_TABS.map((tab) => (
               <button
                 key={tab}
+                ref={(node) => {
+                  tabRefs.current[tab] = node;
+                }}
                 role="tab"
+                id={tabId(tab)}
                 aria-selected={detailTab === tab}
+                aria-controls={panelId(tab)}
+                tabIndex={detailTab === tab ? 0 : -1}
                 className={ACTION}
                 onClick={() => setDetailTab(tab)}
+                onKeyDown={(event) => onTabKeyDown(event, tab)}
               >
                 {tab === "overview" ? translate("Overview") : translate("Tools")}
               </button>
             ))}
           </div>
+          {/* The inactive panel stays as an empty, hidden placeholder so every
+              tab's aria-controls resolves. Its content mounts only when selected. */}
+          {DETAIL_TABS.filter((tab) => tab !== detailTab).map((tab) => (
+            <div
+              key={tab}
+              role="tabpanel"
+              id={panelId(tab)}
+              aria-labelledby={tabId(tab)}
+              hidden
+            />
+          ))}
           {detailTab === "tools" ? (
-            <Suspense fallback={<p>{translate("Loading tools…")}</p>}>
-              <ServerToolsPanel
-                serverId={server.id}
-                registry={registry}
-                onRegistryChange={onRegistryChange}
-              />
-            </Suspense>
+            <div
+              role="tabpanel"
+              id={panelId("tools")}
+              aria-labelledby={tabId("tools")}
+              tabIndex={0}
+              className={PANEL}
+            >
+              <Suspense fallback={<p>{translate("Loading tools…")}</p>}>
+                <ServerToolsPanel
+                  serverId={server.id}
+                  registry={registry}
+                  onRegistryChange={onRegistryChange}
+                />
+              </Suspense>
+            </div>
           ) : (
-            <>
+            <div
+              role="tabpanel"
+              id={panelId("overview")}
+              aria-labelledby={tabId("overview")}
+              tabIndex={0}
+              className={PANEL}
+            >
               {!!requiredLaunch.length && (
                 <p className="text-xs text-muted-foreground">
                   {t(
@@ -524,7 +593,7 @@ export function RegistryServerRow({
                   </>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

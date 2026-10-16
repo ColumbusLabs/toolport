@@ -1,8 +1,15 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ProbeResult, ServerEntry } from "@/lib/types";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RegistryServerRow } from "./RegistryServerRow";
+
+vi.mock("@/components/ServerToolsPanel", () => ({
+  ServerToolsPanel: ({ serverId }: { serverId: string }) => (
+    <button type="button">{`Tools panel for ${serverId}`}</button>
+  ),
+}));
 
 const server: ServerEntry = {
   id: "server-1",
@@ -204,5 +211,136 @@ describe("RegistryServerRow status accessibility", () => {
     ).toBeInTheDocument();
     view.unmount();
     vi.useRealTimers();
+  });
+});
+
+describe("RegistryServerRow detail tabs", () => {
+  const second: ServerEntry = { ...server, id: "server-2", name: "Second" };
+
+  async function renderExpandedRows() {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        {[server, second].map((rowServer) => (
+          <RegistryServerRow
+            key={rowServer.id}
+            server={rowServer}
+            registry={null}
+            enabled={false}
+            onToggle={vi.fn()}
+            onRemove={vi.fn()}
+            onRegistryChange={vi.fn()}
+          />
+        ))}
+      </TooltipProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Show Example details" }));
+    await user.click(screen.getByRole("button", { name: "Show Second details" }));
+    const tablist = (name: string) => screen.getByRole("tablist", { name });
+    const tab = (list: string, name: string) =>
+      within(tablist(list)).getByRole("tab", { name });
+    return { user, tab };
+  }
+
+  it("links each tab to its own panel with unique IDs per row", async () => {
+    const { tab } = await renderExpandedRows();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(4);
+    const ids = tabs.flatMap((t) => [t.id, t.getAttribute("aria-controls")]);
+    expect(ids.every(Boolean)).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const t of tabs) {
+      const panel = document.getElementById(t.getAttribute("aria-controls")!);
+      expect(panel).toHaveAttribute("role", "tabpanel");
+      expect(panel).toHaveAttribute("aria-labelledby", t.id);
+    }
+    // Only the selected panel of each row is exposed.
+    const panels = screen.getAllByRole("tabpanel");
+    expect(panels).toHaveLength(2);
+    expect(panels.map((p) => p.getAttribute("aria-labelledby"))).toEqual([
+      tab("Example details", "Overview").id,
+      tab("Second details", "Overview").id,
+    ]);
+    for (const list of ["Example details", "Second details"]) {
+      expect(tab(list, "Overview")).toHaveAttribute("tabindex", "0");
+      expect(tab(list, "Tools")).toHaveAttribute("tabindex", "-1");
+    }
+  });
+
+  it("moves focus and selection with the arrow keys, Home and End", async () => {
+    const { user, tab } = await renderExpandedRows();
+    const overview = tab("Example details", "Overview");
+    const tools = tab("Example details", "Tools");
+    act(() => overview.focus());
+
+    await user.keyboard("{ArrowRight}");
+    expect(tools).toHaveFocus();
+    expect(tools).toHaveAttribute("aria-selected", "true");
+    expect(tools).toHaveAttribute("tabindex", "0");
+    expect(overview).toHaveAttribute("aria-selected", "false");
+    expect(overview).toHaveAttribute("tabindex", "-1");
+    // Mounting the lazy Tools panel keeps focus on the tab.
+    expect(
+      await screen.findByRole("button", { name: "Tools panel for server-1" }),
+    ).toBeInTheDocument();
+    expect(tools).toHaveFocus();
+    expect(screen.getByRole("tabpanel", { name: "Tools" })).toHaveAttribute(
+      "id",
+      tools.getAttribute("aria-controls"),
+    );
+    // The other row keeps its own selection.
+    expect(tab("Second details", "Overview")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText("Tools panel for server-2")).not.toBeInTheDocument();
+
+    await user.keyboard("{ArrowRight}");
+    expect(overview).toHaveFocus();
+    expect(overview).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowLeft}");
+    expect(tools).toHaveFocus();
+    expect(tools).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{Home}");
+    expect(overview).toHaveFocus();
+    expect(overview).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{End}");
+    expect(tools).toHaveFocus();
+    expect(tools).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("cancels the default action only for the tab navigation keys", async () => {
+    const { tab } = await renderExpandedRows();
+    const overview = tab("Example details", "Overview");
+    // fireEvent returns false when the handler called preventDefault, which keeps
+    // the arrow keys and Home/End from also scrolling the page.
+    for (const key of ["ArrowRight", "ArrowLeft", "Home", "End"]) {
+      expect(fireEvent.keyDown(overview, { key })).toBe(false);
+    }
+    expect(fireEvent.keyDown(overview, { key: "a" })).toBe(true);
+  });
+
+  it("tabs from the selected tab into its panel and skips the other tab", async () => {
+    const { user, tab } = await renderExpandedRows();
+    const overview = tab("Example details", "Overview");
+    act(() => overview.focus());
+
+    await user.tab();
+    expect(screen.getAllByRole("tabpanel", { name: "Overview" })[0]).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(overview).toHaveFocus();
+
+    await user.keyboard("{End}");
+    const tools = tab("Example details", "Tools");
+    await screen.findByRole("button", { name: "Tools panel for server-1" });
+    expect(tools).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("tabpanel", { name: "Tools" })).toHaveFocus();
+    await user.tab();
+    expect(
+      screen.getByRole("button", { name: "Tools panel for server-1" }),
+    ).toHaveFocus();
+    await user.tab({ shift: true });
+    await user.tab({ shift: true });
+    expect(tools).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Hide Example details" })).toHaveFocus();
   });
 });
