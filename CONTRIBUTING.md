@@ -417,6 +417,7 @@ Check the client's config file and match it to a `Format` variant:
 | `JsonMcp`               | top-level `mcp` object                                         | Crush                                            |
 | `JsonQwenMcpServers`    | `{"mcpServers": {"name": {"httpUrl": "..."}}}`                 | Qwen Code                                        |
 | `JsonKimiMcpServers`    | `{"mcpServers": {"name": {"transport": "sse", "url": "..."}}}` | Kimi Code                                        |
+| `JsonAuggieMcpServers`  | `{"mcpServers": {...}}` non-object settings root is rejected   | Auggie CLI                                       |
 | `JsonServers`           | `{"servers": {...}}`                                           | VS Code                                          |
 | `JsonOpenCodeMcp`       | `{"mcp": {"name": {"command": [...]}}}`                        | OpenCode, Kilo Code                              |
 | `JsonContextServers`    | `{"context_servers": {...}}` (JSONC)                           | Zed                                              |

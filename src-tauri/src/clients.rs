@@ -140,6 +140,10 @@ enum Format {
     /// `type` hint other clients use), and bearer auth is declared via
     /// `bearerTokenEnvVar` naming a shell env var that holds the token.
     JsonKimiMcpServers,
+    /// Auggie CLI's top-level `mcpServers` object. Standard JSON shape, but the
+    /// file is Auggie's whole user settings, so a non-object root is rejected
+    /// instead of being replaced.
+    JsonAuggieMcpServers,
     /// ZCode CLI and desktop share the user config's nested `mcp.servers` map.
     JsonZCodeMcp,
     /// JSON with a top-level `servers` object (VS Code).
@@ -2380,7 +2384,7 @@ fn defs() -> Vec<ClientDef> {
             discovery: discovery::capabilities("auggie"),
             combined_tool_name_budget: None,
             name: "Auggie CLI",
-            format: Format::JsonMcpServers,
+            format: Format::JsonAuggieMcpServers,
             uses_connectors: false,
             // Auggie's user settings: `~/.augment/settings.json` (JSONC, `mcpServers`).
             // The same file holds shell, theme, permissions and other settings, so it
@@ -4133,6 +4137,7 @@ fn parse_client_content(format: Format, content: &str) -> Result<Vec<McpServer>,
         Format::JsonAmpMcpServers => parse_json(content, "amp.mcpServers"),
         Format::JsonQwenMcpServers => parse_qwen_json(content),
         Format::JsonKimiMcpServers => parse_json(content, "mcpServers"),
+        Format::JsonAuggieMcpServers => parse_json(content, "mcpServers"),
         Format::JsonZCodeMcp => zcode::parse(content),
         Format::JsonServers => parse_json(content, "servers"),
         Format::JsonMcp => parse_json(content, "mcp"),
@@ -6004,6 +6009,19 @@ fn validate_crush_settings_shape(root: &serde_json::Value) -> Result<(), String>
     Ok(())
 }
 
+fn validate_auggie_settings_shape(root: &serde_json::Value) -> Result<(), String> {
+    let object = root
+        .as_object()
+        .ok_or("Auggie settings root must be an object; leaving it untouched.")?;
+    if object
+        .get("mcpServers")
+        .is_some_and(|servers| !servers.is_object())
+    {
+        return Err("'mcpServers' must be an object; leaving Auggie settings untouched.".into());
+    }
+    Ok(())
+}
+
 fn write_json(
     path: &Path,
     key: &str,
@@ -6052,6 +6070,26 @@ fn write_kimi_json(path: &Path, servers: &[ServerEntry]) -> Result<(), String> {
         true,
         entry_to_kimi_json,
         false,
+        false,
+    )
+}
+
+fn write_auggie_json(path: &Path, servers: &[ServerEntry]) -> Result<(), String> {
+    let (mut root, original) = if mutation::exists(path) {
+        let content = read_config_file(path)?;
+        let root = read_existing_json(&content, true)?;
+        (root, Some(content))
+    } else {
+        (serde_json::Value::Object(serde_json::Map::new()), None)
+    };
+    validate_auggie_settings_shape(&root)?;
+    write_json_with_body(
+        path,
+        original.as_deref(),
+        "mcpServers",
+        &mut root,
+        servers,
+        entry_to_json,
         false,
     )
 }
@@ -6814,6 +6852,7 @@ fn write_format(
         Format::JsonAmpMcpServers => write_json(path, "amp.mcpServers", servers, true)?,
         Format::JsonQwenMcpServers => write_qwen_json(path, servers)?,
         Format::JsonKimiMcpServers => write_kimi_json(path, servers)?,
+        Format::JsonAuggieMcpServers => write_auggie_json(path, servers)?,
         Format::JsonZCodeMcp => zcode::write_servers(path, servers)?,
         Format::JsonServers => write_json(path, "servers", servers, lenient)?,
         Format::JsonMcp => write_crush_json(path, servers)?,
@@ -7294,6 +7333,26 @@ fn edit_kimi_json_gateway(path: &Path, entry: Option<&ServerEntry>) -> Result<()
     )
 }
 
+fn edit_auggie_json_gateway(path: &Path, entry: Option<&ServerEntry>) -> Result<(), String> {
+    let (mut root, original) = if mutation::exists(path) {
+        let content = read_config_file(path)?;
+        let root = read_existing_json(&content, true)?;
+        (root, Some(content))
+    } else {
+        (serde_json::Value::Object(serde_json::Map::new()), None)
+    };
+    validate_auggie_settings_shape(&root)?;
+    edit_json_gateway_body(
+        path,
+        original.as_deref(),
+        "mcpServers",
+        &mut root,
+        entry,
+        None,
+        false,
+    )
+}
+
 fn edit_json_gateway_with(
     path: &Path,
     key: &str,
@@ -7511,6 +7570,7 @@ fn edit_format(
         Format::JsonAmpMcpServers => edit_json_gateway(path, "amp.mcpServers", entry, true)?,
         Format::JsonQwenMcpServers => edit_qwen_json_gateway(path, entry)?,
         Format::JsonKimiMcpServers => edit_kimi_json_gateway(path, entry)?,
+        Format::JsonAuggieMcpServers => edit_auggie_json_gateway(path, entry)?,
         Format::JsonZCodeMcp => zcode::edit_gateway(path, entry)?,
         Format::JsonServers => edit_json_gateway(path, "servers", entry, lenient)?,
         Format::JsonMcp => edit_crush_gateway(path, entry)?,
@@ -12576,7 +12636,7 @@ command = "npx"
     fn auggie_is_registered_as_a_json_mcp_servers_client() {
         let def = find_def("auggie").unwrap();
         assert_eq!(def.name, "Auggie CLI");
-        assert!(matches!(def.format, Format::JsonMcpServers));
+        assert!(matches!(def.format, Format::JsonAuggieMcpServers));
         assert!(!def.uses_connectors);
         assert!(def.plugin_scan.is_none());
         // Nothing about Auggie's search or list refresh is verified yet.
@@ -12688,6 +12748,53 @@ command = "npx"
 
         drop(_home);
         let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn auggie_write_keeps_comments_and_other_settings() {
+        let path = temp_path("auggie-write-jsonc");
+        std::fs::write(&path, AUGGIE_SETTINGS).unwrap();
+
+        write_auggie_json(&path, &[stdio("filesystem")]).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            content.contains("// Auggie user settings (JSONC)"),
+            "{content}"
+        );
+        assert!(content.contains("// keep current"), "{content}");
+        let root = parse_json_value(&content).unwrap();
+        assert_eq!(root["theme"], "ansi");
+        assert_eq!(root["toolPermissions"][0]["toolName"], "terminal");
+        assert_eq!(root["mcpServers"]["filesystem"]["command"], "npx");
+        assert_eq!(root["mcpServers"].as_object().unwrap().len(), 1);
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn auggie_valid_non_object_settings_are_never_overwritten() {
+        let def = find_def("auggie").unwrap();
+        let lenient = config_is_whole_app_state("auggie");
+        for (label, original) in [
+            ("auggie-non-object-root", r#"["shared", "settings"]"#),
+            (
+                "auggie-non-object-key",
+                r#"{"theme":"ansi","mcpServers":["unexpected"]}"#,
+            ),
+        ] {
+            let path = temp_path(label);
+            std::fs::write(&path, original).unwrap();
+
+            let error =
+                write_format(def.format, &path, &[stdio("filesystem")], lenient).unwrap_err();
+            assert!(error.contains("untouched"), "got: {error}");
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+            let entry = sample_gateway(None, "auggie");
+            let error = edit_format(def.format, &path, Some(&entry), lenient).unwrap_err();
+            assert!(error.contains("untouched"), "got: {error}");
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+            std::fs::remove_file(&path).ok();
+        }
     }
 
     #[test]
@@ -13228,7 +13335,6 @@ command = "npx"
             "warp",
             "amazon-q",
             "kiro",
-            "auggie",
             "lm-studio",
             "jan",
             "anythingllm",
