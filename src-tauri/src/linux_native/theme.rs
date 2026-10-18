@@ -1089,6 +1089,190 @@ button.toolport-catalog-action {{
   color: @toolport_muted;
 }}
 
+/* Clients page: one line per client, controls on the right. */
+.toolport-card.toolport-client-row {{ padding: 9px 4px; }}
+.toolport-client-row .toolport-client-logo {{ min-width: 28px; min-height: 28px; }}
+.toolport-card.toolport-client-profile {{ padding-left: 44px; }}
+.toolport-client-tile {{
+  border: 1px solid alpha(@toolport_fg, 0.10);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background-color: alpha(@toolport_surface, 0.22);
+}}
+.toolport-client-tile:hover {{ background-color: alpha(@toolport_accent, 0.05); }}
+button.toolport-client-group-toggle {{
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  background: none;
+  box-shadow: none;
+}}
+.toolport-client-row .toolport-badge.caption {{ padding: 1px 8px; }}
+
+/* Skills page: the React view's list-and-detail layout with one status column per agent. */
+.toolport-skill-tabbar {{
+  border-bottom: 1px solid alpha(@toolport_fg, 0.12);
+}}
+button.toolport-skill-tab {{
+  border-radius: 0;
+  padding: 4px 2px 9px 2px;
+  min-height: 0;
+  background: none;
+  box-shadow: none;
+  border-bottom: 2px solid transparent;
+  color: alpha(@toolport_fg, 0.62);
+}}
+button.toolport-skill-tab:hover {{ color: @toolport_fg; background: none; }}
+button.toolport-skill-tab:checked {{
+  color: @toolport_fg;
+  font-weight: 600;
+  background: none;
+  border-bottom-color: @toolport_accent;
+}}
+.toolport-skill-count {{
+  background-color: alpha(@toolport_muted, 0.18);
+  color: alpha(@toolport_fg, 0.70);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-weight: 500;
+}}
+.toolport-skill-count.warning {{
+  background-color: alpha(@warning_color, 0.16);
+  color: @warning_color;
+}}
+.toolport-skill-banner {{
+  border: 1px solid alpha(@toolport_fg, 0.10);
+  border-left: 4px solid @warning_color;
+  border-radius: 12px;
+  background-color: alpha(@toolport_surface, 0.45);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}}
+.toolport-skill-tile {{
+  border-radius: 10px;
+  background-color: alpha(@toolport_accent, 0.14);
+  color: @toolport_accent;
+}}
+.toolport-skill-tile.warning {{ background-color: alpha(@warning_color, 0.14); color: @warning_color; }}
+.toolport-skill-tile.error {{ background-color: alpha(@toolport_error, 0.12); color: @toolport_error; }}
+/* React's info violet; libadwaita's named palette has the same hue. */
+.toolport-skill-tile.info {{ background-color: alpha(@purple_2, 0.14); color: @purple_2; }}
+.toolport-skill-head {{
+  border-bottom: 1px solid alpha(@toolport_fg, 0.12);
+  padding: 0 8px 6px 8px;
+}}
+.toolport-skill-head button.toolport-skill-col {{
+  padding: 2px 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 6px;
+}}
+.toolport-skill-head button.toolport-skill-col.selected {{
+  background-color: alpha(@toolport_accent, 0.16);
+  box-shadow: inset 0 0 0 1px alpha(@toolport_accent, 0.60);
+}}
+.toolport-skill-head .toolport-client-logo {{ min-width: 18px; min-height: 18px; margin: 0; }}
+.toolport-skill-logo .toolport-client-logo {{ min-width: 20px; min-height: 20px; margin: 0; }}
+.toolport-skill-chip .toolport-client-logo {{ min-width: 14px; min-height: 14px; margin: 0; }}
+.toolport-skill-pip {{
+  margin: 1px 3px;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 999px;
+  background-color: @toolport_accent;
+}}
+list.toolport-skill-list {{ background: transparent; }}
+list.toolport-skill-list > row {{ border-radius: 8px; padding: 0; }}
+list.toolport-skill-list > row:hover {{ background-color: alpha(@toolport_fg, 0.04); }}
+list.toolport-skill-list > row:selected {{ background-color: alpha(@toolport_accent, 0.14); }}
+list.toolport-skill-list > row.toolport-skill-group-row:hover {{ background: none; }}
+.toolport-skill-row {{ padding: 7px 8px; }}
+.toolport-skill-name {{ font-weight: 600; }}
+.toolport-skill-group {{ padding: 14px 8px 5px 8px; }}
+.toolport-skill-dot {{
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 999px;
+}}
+.toolport-skill-dot.on {{ background-color: @toolport_success; }}
+.toolport-skill-dot.name-only {{
+  min-width: 8px;
+  min-height: 8px;
+  border: 2px solid #38bdf8;
+  background-image: linear-gradient(90deg, #38bdf8 50%, transparent 50%);
+}}
+.toolport-skill-dot.shadowed {{
+  min-width: 8px;
+  min-height: 8px;
+  border: 2px solid @warning_color;
+}}
+.toolport-skill-dot.broken {{
+  min-width: 10px;
+  min-height: 10px;
+  border: 2px solid @toolport_error;
+}}
+.toolport-skill-dot-core {{
+  min-width: 4px;
+  min-height: 4px;
+  border-radius: 999px;
+  background-color: @toolport_error;
+}}
+.toolport-skill-dot.none {{
+  min-width: 4px;
+  min-height: 4px;
+  background-color: alpha(@toolport_fg, 0.28);
+}}
+.toolport-skill-off {{ color: alpha(@toolport_fg, 0.55); }}
+.toolport-skill-legend {{
+  border-top: 1px solid alpha(@toolport_fg, 0.12);
+  padding-top: 8px;
+  margin-top: 6px;
+}}
+.toolport-skill-agents {{
+  border: 1px solid alpha(@toolport_fg, 0.12);
+  border-radius: 12px;
+}}
+.toolport-skill-agent {{
+  padding: 10px 12px;
+  border-bottom: 1px solid alpha(@toolport_fg, 0.08);
+}}
+.toolport-skill-agent:last-child {{ border-bottom: none; }}
+.toolport-skill-agent.dim {{ opacity: 0.6; }}
+.toolport-skill-logo {{
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  background-color: alpha(@toolport_fg, 0.06);
+}}
+levelbar.toolport-skill-meter trough {{
+  min-height: 5px;
+  border-radius: 999px;
+  background-color: alpha(@toolport_fg, 0.10);
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}}
+levelbar.toolport-skill-meter block {{ min-height: 5px; border-radius: 999px; border: none; }}
+levelbar.toolport-skill-meter block.filled {{ background-color: @toolport_success; }}
+levelbar.toolport-skill-meter block.empty {{ background: none; }}
+levelbar.toolport-skill-meter.over block.filled {{ background-color: @warning_color; }}
+.toolport-skill-issue {{
+  border: 1px solid alpha(@toolport_fg, 0.10);
+  border-radius: 12px;
+  background-color: alpha(@toolport_surface, 0.40);
+  padding: 14px;
+}}
+.toolport-skill-chip {{
+  background-color: alpha(@toolport_fg, 0.07);
+  border-radius: 6px;
+  padding: 3px 7px;
+}}
+.toolport-skill-chip.logo {{ padding: 0; }}
+button.toolport-skill-chip {{ min-height: 0; min-width: 0; padding: 3px 8px; }}
+button.toolport-skill-chip:hover {{ background-color: alpha(@toolport_fg, 0.13); }}
+.toolport-skill-segments button {{ padding: 2px 9px; min-height: 24px; }}
+
 /* Sync page: one amber block for everything that needs a decision. */
 .toolport-attention {{
   border-left: 3px solid @warning_color;

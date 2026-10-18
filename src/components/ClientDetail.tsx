@@ -48,6 +48,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ConnectReviewDialog } from "@/components/ConnectReviewDialog";
 import { ImportReviewDialog } from "@/components/ImportReviewDialog";
 import { clientRestartHint, clientRestartHintAfterRemoval } from "@/lib/clientConnect";
+import { clientDiscovery } from "@/lib/clientDiscovery";
 
 interface Props {
   client: DetectedClient;
@@ -127,22 +128,13 @@ export function ClientDetail({ client, registry, onChanged, onRegistryChange }: 
     });
   }
 
-  // Absence is Auto: the user's global choice if they made one (mirrors
-  // Registry::chosen_global_discovery_mode), else the backend client default.
-  const globalMode = registry?.discoveryMode?.trim().toLowerCase();
-  const chosenGlobal =
-    (globalMode && DISCOVERY_HINT[globalMode] ? globalMode : "") ||
-    (registry?.lazyDiscovery === false ? "full" : "") ||
-    (registry?.legacyLazyDiscovery ? "lazy" : "");
-  const autoMode = chosenGlobal || client.discovery?.autoMode || "lazy";
-  // Auto lists a small catalog in full for clients with a measured crossover.
-  const autoFullMax = chosenGlobal ? null : client.discovery?.autoFullMaxTools;
+  const { autoMode, autoFullMax, clientMode, effectiveMode } = clientDiscovery(
+    client,
+    registry,
+  );
   const autoLabel = autoFullMax
     ? translate("full up to {count} tools, then lazy", { count: autoFullMax })
     : autoMode;
-  const storedMode = registry?.clientDiscovery?.[client.id]?.trim().toLowerCase();
-  const clientMode = storedMode && DISCOVERY_HINT[storedMode] ? storedMode : "";
-  const effectiveMode = clientMode || autoMode;
 
   /** Set or clear this client's discovery-mode override; applies live, no reconnect. */
   async function applyDiscovery(mode: string) {

@@ -92,6 +92,7 @@ toml = "0.8"
 # launch-time repoint, and uninstall (SBS-884). Matches the JSONC CST contract.
 toml_edit = "0.22"
 dirs = "5"
+trash = "5"
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "gzip", "json"] }
 ureq-proto = { version = "=0.6.4", default-features = false }
 sha2 = "0.10"

@@ -384,5 +384,21 @@
   "{skill} in {client}": "{skill} in {client}",
   "{client}: {state}": "{client}: {state}",
   "Couldn't copy the path": "Couldn't copy the path",
-  "That project folder is gone. Showing global only.": "That project folder is gone. Showing global only."
+  "That project folder is gone. Showing global only.": "That project folder is gone. Showing global only.",
+  "Open with": "Open with",
+  "No other apps found": "No other apps found",
+  "{app} (default)": "{app} (default)",
+  "Remove {skill}": "Remove {skill}",
+  "Remove {skill}?": "Remove {skill}?",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.",
+  "Show again": "Show again",
+  "Show {skill}": "Show {skill}",
+  "Couldn't change this": "Couldn't change this",
+  "Moved {skill} to the trash": "Moved {skill} to the trash",
+  "Removed the links to {skill}. Its folder stays where it is.": "Removed the links to {skill}. Its folder stays where it is.",
+  "Couldn't remove {skill}": "Couldn't remove {skill}",
+  "Dismissed": "Dismissed",
+  "Back if anything about them changes": "Back if anything about them changes",
+  "Show only skills {client} finds": "Show only skills {client} finds",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is."
 }

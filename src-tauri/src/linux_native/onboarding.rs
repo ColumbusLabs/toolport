@@ -1109,6 +1109,7 @@ mod tests {
                 inherited_discovery: None,
                 config_error: false,
                 location_removable: false,
+                claude_profile: None,
             }],
             profiles: Vec::new(),
             sessions: Vec::new(),

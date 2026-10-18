@@ -417,6 +417,8 @@ pub(super) struct ClientView {
     pub(super) inherited_discovery: Option<String>,
     pub(super) config_error: bool,
     pub(super) location_removable: bool,
+    /// Set when several Claude Code profiles are listed, to tell them apart.
+    pub(super) claude_profile: Option<crate::clients::ClaudeProfile>,
 }
 
 impl ClientView {
@@ -455,6 +457,7 @@ impl ClientView {
             inherited_discovery: None,
             config_error: client.error.is_some(),
             location_removable: client.location_removable,
+            claude_profile: client.claude_profile,
         }
     }
 }
@@ -1237,6 +1240,7 @@ mod tests {
             gateway_installed: true,
             entry_state: crate::clients::GatewayEntryState::Managed,
             error: None,
+            claude_profile: None,
         };
 
         let view = ClientView::from_detected(detected);

@@ -13,9 +13,22 @@ Entries before the rename below shipped under the project's former name, Conduit
   and more. See each skill's state in every agent, how each agent reaches your rules
   files, and turn a skill on or off through the agent's own setting. A Needs a look
   tab finds skills still on elsewhere, broken links, duplicate names, cut-off
-  descriptions and rules files an agent never reads, with confirmed fixes. Available
-  in the app and the Linux GTK app. See
+  descriptions and rules files an agent never reads, with confirmed fixes, and
+  items you're fine with can be dismissed. Open a file in the app you pick, and move
+  a skill you own to the trash. Several Claude Code profiles each get their own
+  column. Available in the app and the Linux GTK app. See
   [Skills and rules](https://github.com/btsouth/toolport/blob/main/docs/skills-and-rules.md).
+
+### Changed
+
+- The Clients page uses the window better. Each client is one line with its
+  controls on the right, clients ready to connect sit two to a row on wide
+  windows, and the page stops widening past a comfortable width. Several Claude
+  Code profiles now sit under one Claude Code entry, each named by the command
+  that starts it (`claude`, `claude2`) with its claude.ai account and when it was
+  last used. A copy of your main profile that only background tools read is
+  listed behind a note. Available in the app and the Linux GTK app. See
+  [Supported clients](https://github.com/btsouth/toolport/blob/main/docs/clients.md#several-claude-code-accounts).
 
 ### Fixed
 

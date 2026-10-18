@@ -17,12 +17,15 @@ use crate::registry::{ManagedEntry, ServerEntry};
 
 #[cfg(windows)]
 mod backup_permissions;
+mod claude_profiles;
+pub use claude_profiles::ClaudeProfile;
 mod disconnect;
 pub(crate) use disconnect::for_purge as disconnect_all_for_purge;
 pub use disconnect::{all as disconnect_all, ClientResult as DisconnectResult};
 mod discovery;
 mod locations;
 pub use discovery::DiscoveryCapabilities;
+pub(crate) use locations::folder_key as claude_profile_key;
 #[cfg(feature = "test-support")]
 pub use locations::measure_scan as measure_client_location_scan;
 pub use locations::{
@@ -104,6 +107,9 @@ pub struct DetectedClient {
     /// Set when the config exists but could not be read or parsed.
     #[serde(serialize_with = "serialize_config_error")]
     pub error: Option<String>,
+    /// Set when several Claude Code profiles are listed, to tell them apart.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude_profile: Option<ClaudeProfile>,
 }
 
 fn serialize_config_error<S: serde::Serializer>(
@@ -873,7 +879,7 @@ fn try_claude_code_config_paths() -> Result<Vec<PathBuf>, String> {
 
 /// Name-first, shallow discovery. Symlink directories are excluded so automatic
 /// discovery never follows a profile outside home. Config contents are not read.
-fn claude_profile_name(name: &str) -> bool {
+pub(crate) fn claude_profile_name(name: &str) -> bool {
     if name == ".claude" {
         return true;
     }
@@ -3778,6 +3784,7 @@ fn read_client(def: &ClientDef) -> DetectedClient {
             gateway_installed,
             entry_state,
             error,
+            claude_profile: None,
         }
     };
 
@@ -3884,6 +3891,7 @@ fn config_error_row(id: &str, name: &str, path: String, error: String) -> Detect
         gateway_installed: false,
         entry_state: GatewayEntryState::Absent,
         error: Some(error),
+        claude_profile: None,
     }
 }
 
@@ -3944,7 +3952,9 @@ pub fn detect_clients_with_inspection(
     if inspect_configs {
         detect_clients_for_display()
     } else {
-        Ok(detect_clients())
+        let mut clients = detect_clients();
+        claude_profiles::annotate(&mut clients);
+        Ok(clients)
     }
 }
 
@@ -3965,6 +3975,7 @@ fn detect_clients_for_display_with_gateway(
     });
     let mut clients = detect_clients_for_display_in(definitions, current, gateway)?;
     append_client_scan_errors(&mut clients);
+    claude_profiles::annotate(&mut clients);
     Ok(clients)
 }
 
@@ -4099,6 +4110,7 @@ pub fn client_metadata() -> Vec<DetectedClient> {
                 gateway_installed: false,
                 entry_state: GatewayEntryState::Absent,
                 error: None,
+                claude_profile: None,
             }
         })
         .collect()
@@ -11081,6 +11093,7 @@ bad = "not-a-table"
             gateway_installed: true,
             entry_state: GatewayEntryState::Managed,
             error: None,
+            claude_profile: None,
         }
     }
 

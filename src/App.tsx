@@ -108,7 +108,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { useTheme } from "@/lib/theme";
 import { fmtTs } from "@/lib/utils";
 import { createSingleFlight } from "@/lib/singleFlight";
-import { resolveShortcut, shortcutHelp, SKILLS_REFRESH_EVENT } from "@/lib/shortcuts";
+import {
+  resolveShortcut,
+  shortcutHelp,
+  SKILLS_REFRESH_EVENT,
+  SKILLS_SEARCH_EVENT,
+} from "@/lib/shortcuts";
 import { subscribeToTrayApprovals } from "@/lib/trayApprovals";
 
 /** Above this many servers, "Disable all" asks for confirmation first. */
@@ -549,8 +554,12 @@ function App() {
           break;
         case "focusSearch":
           e.preventDefault();
-          // Search only exists on the servers list; go there first so the shortcut
-          // is not a silent no-op from another view.
+          // Skills has its own search. Elsewhere, search lives on the servers list; go
+          // there first so the shortcut is not a silent no-op from another view.
+          if (viewRef.current === "skills") {
+            window.dispatchEvent(new Event(SKILLS_SEARCH_EVENT));
+            break;
+          }
           selectView("servers");
           focusSearchWhenMounted();
           break;

@@ -202,7 +202,7 @@ fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || b"-_.@%".contains(&c))
 }
 
-fn folder_key(folder: &str) -> String {
+pub(crate) fn folder_key(folder: &str) -> String {
     folder
         .trim_start_matches('.')
         .bytes()

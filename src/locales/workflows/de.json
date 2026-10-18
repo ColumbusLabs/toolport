@@ -384,5 +384,21 @@
   "{skill} in {client}": "{skill} in {client}",
   "{client}: {state}": "{client}: {state}",
   "Couldn't copy the path": "Pfad konnte nicht kopiert werden",
-  "That project folder is gone. Showing global only.": "Dieser Projektordner existiert nicht mehr. Es wird nur Globales angezeigt."
+  "That project folder is gone. Showing global only.": "Dieser Projektordner existiert nicht mehr. Es wird nur Globales angezeigt.",
+  "Open with": "Öffnen mit",
+  "No other apps found": "Keine anderen Apps gefunden",
+  "{app} (default)": "{app} (Standard)",
+  "Remove {skill}": "{skill} entfernen",
+  "Remove {skill}?": "{skill} entfernen?",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "Der Ordner wird in den Papierkorb verschoben und Links darauf werden entfernt, sodass kein Client ihn mehr lädt. Sie können den Ordner aus dem Papierkorb wiederherstellen.",
+  "Show again": "Wieder anzeigen",
+  "Show {skill}": "{skill} anzeigen",
+  "Couldn't change this": "Konnte nicht geändert werden",
+  "Moved {skill} to the trash": "{skill} in den Papierkorb verschoben",
+  "Removed the links to {skill}. Its folder stays where it is.": "Links zu {skill} entfernt. Der Ordner bleibt, wo er ist.",
+  "Couldn't remove {skill}": "{skill} konnte nicht entfernt werden",
+  "Dismissed": "Ausgeblendet",
+  "Back if anything about them changes": "Kommen zurück, sobald sich daran etwas ändert",
+  "Show only skills {client} finds": "Nur Skills zeigen, die {client} findet",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "Nur die Verknüpfungen darauf werden entfernt, damit kein Client es lädt. Sein Ordner unter {path} bleibt, wo er ist."
 }

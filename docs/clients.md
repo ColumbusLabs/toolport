@@ -48,6 +48,23 @@ below for you, so you never have to edit these by hand.
 
 `<config>` is your OS application-config dir (`%APPDATA%` on Windows, `~/Library/Application Support` on macOS, `~/.config` on Linux); `<data>` is the data dir (`~/.local/share` on Linux, the same as `<config>` elsewhere). Zed and Goose paths vary slightly by OS; Toolport resolves the right one automatically.
 
+### Several Claude Code accounts
+
+Toolport also finds Claude Code config folders beside `~/.claude.json`, such as
+`~/.claude2`, and you can add others with **Add client location**. When there is
+more than one, the Clients page lists them under one Claude Code entry. Each
+profile shows the command that starts it, the claude.ai account signed in to it
+and when it was last used.
+
+The command comes from small launcher scripts in `~/.local/bin`, `~/bin` or your
+own PATH folders, and from bash or zsh aliases, that set `CLAUDE_CONFIG_DIR` and
+run `claude`. A folder with no such launcher is named by its path.
+
+`~/.claude/.claude.json` with the same account as `~/.claude.json` is usually
+written by background tools that set `CLAUDE_CONFIG_DIR=~/.claude`. Claude Code
+itself does not read it, so it is listed behind a note instead of as its own
+profile. Show lists it if you want to connect it anyway.
+
 ### Auggie CLI setup
 
 Toolport manages Auggie's user settings at `~/.augment/settings.json`

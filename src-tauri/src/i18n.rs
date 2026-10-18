@@ -253,6 +253,34 @@ pub fn locale() -> &'static str {
         .locale
 }
 
+/// A whole number with the current language's digit grouping, as JavaScript's
+/// `toLocaleString` writes it in the React app: 1,536 in English, 1.536 in German.
+pub fn group_digits(value: usize) -> String {
+    group_digits_for(locale(), value)
+}
+
+fn group_digits_for(locale: &str, value: usize) -> String {
+    let digits = value.to_string();
+    let (separator, min_digits) = match locale {
+        "de" | "pt-BR" => (".", 4),
+        // Spanish leaves four-digit numbers alone.
+        "es" => (".", 5),
+        "fr" => ("\u{202f}", 4),
+        _ => (",", 4),
+    };
+    if digits.len() < min_digits {
+        return digits;
+    }
+    let mut out = String::new();
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            out.push_str(separator);
+        }
+        out.push(digit);
+    }
+    out
+}
+
 pub fn revision() -> u64 {
     REVISION.load(Ordering::Acquire)
 }
@@ -309,6 +337,17 @@ fn interpolate(template: &str, values: &[(&str, &str)]) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn digits_group_like_the_react_app() {
+        assert_eq!(super::group_digits_for("en", 1536), "1,536");
+        assert_eq!(super::group_digits_for("de", 1536), "1.536");
+        assert_eq!(super::group_digits_for("es", 1536), "1536");
+        assert_eq!(super::group_digits_for("es", 15360), "15.360");
+        assert_eq!(super::group_digits_for("fr", 1536), "1\u{202f}536");
+        assert_eq!(super::group_digits_for("ja", 999), "999");
+        assert_eq!(super::group_digits_for("en", 1234567), "1,234,567");
+    }
+
     use super::*;
 
     #[test]

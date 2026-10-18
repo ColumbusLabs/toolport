@@ -433,6 +433,7 @@ mod tests {
             gateway_installed: true,
             entry_state: GatewayEntryState::Managed,
             error: None,
+            claude_profile: None,
             location_removable: false,
         };
         let results = all_with_clients(false, true, || vec![client]).unwrap();

@@ -54,6 +54,21 @@ export interface DetectedClient {
   /** First-class ownership: managed by us, hand-customized, or absent (SOU-406). */
   entryState: GatewayEntryState;
   error: string | null;
+  /** Set on each Claude Code profile when this machine has several of them. */
+  claudeProfile?: ClaudeProfile;
+}
+
+/** What tells one Claude Code profile apart (src-tauri/src/clients/claude_profiles.rs). */
+export interface ClaudeProfile {
+  /** `claude`, or the launcher script or alias that sets CLAUDE_CONFIG_DIR to it. */
+  command: string | null;
+  /** The claude.ai account signed in to this profile. */
+  account: string | null;
+  /** The config folder in `~` form, or `~/.claude.json` for the default profile. */
+  folder: string;
+  lastUsedMs: number | null;
+  /** The profile this one copies: same account in `~/.claude`, read only through CLAUDE_CONFIG_DIR. */
+  sameAs: string | null;
 }
 
 export interface WriteOutcome {
@@ -845,6 +860,8 @@ export interface SkillAgent {
   verified: boolean;
   /** True when Toolport can write this client's own per-skill switch. */
   canToggle: boolean;
+  /** The switch also has a "name only" setting (Claude Code's skillOverrides). */
+  nameOnly: boolean;
   switchNote: string;
   roots: SkillAgentRoot[];
   rulesNote: string | null;
@@ -854,6 +871,10 @@ export interface SkillAgent {
 export interface SkillAgentState {
   state: SkillLoadState;
   via: string;
+  /** The name this client's own setting uses, when it differs (Claude plugin skills). */
+  switchName?: string;
+  /** Off through a rule covering many skills, not a choice about this one. */
+  byPattern?: boolean;
 }
 
 export interface SkillEntry {
@@ -866,6 +887,10 @@ export interface SkillEntry {
   source: SkillSource;
   sourceNote: string;
   editable: boolean;
+  /** Toolport can remove it: the user's own, not reached through a linked folder. */
+  removable: boolean;
+  /** Remove moves the folder to the trash, not only the links to it. */
+  trashOnRemove: boolean;
   sizeBytes: number;
   lines: number;
   modifiedSecs: number | null;
@@ -903,6 +928,28 @@ export interface SkillIssue {
   /** Display names for `skills`, without repeats. */
   skillNames: string[];
   fixLabel: string | null;
+  /** Stays the same while the issue covers the same skills and clients. */
+  fingerprint: string;
+  /** The user said this one is fine; it returns when something about it changes. */
+  dismissed: boolean;
+}
+
+/** An app that can open skill and rules files. */
+export interface SkillOpenApp {
+  id: string;
+  name: string;
+  /** The system's default app for this kind of file. */
+  default: boolean;
+  /** The app Open uses, picked by the user. */
+  chosen: boolean;
+}
+
+/** What removing a skill did. */
+export interface RemovedSkill {
+  /** The folder moved to the trash, or null when only links to it were removed. */
+  trashed: string | null;
+  links: number;
+  inventory: SkillsInventory;
 }
 
 export interface SkillsInventory {

@@ -521,6 +521,27 @@ pub(super) fn unbind(object: &impl IsA<glib::Object>, property: &str) {
     });
 }
 
+/// Call `callback` after each language change for as long as `object` lives, for views
+/// whose text comes from data (a rescan) rather than one source string.
+pub(super) fn on_language_change(object: &impl IsA<glib::Object>, callback: impl Fn() + 'static) {
+    let weak = object.as_ref().downgrade();
+    // `register` runs a binding once right away; this one waits for a real change.
+    let first = Cell::new(true);
+    register(
+        object,
+        "language-change",
+        Rc::new(move || {
+            if weak.upgrade().is_none() {
+                return false;
+            }
+            if !first.replace(false) {
+                callback();
+            }
+            true
+        }),
+    );
+}
+
 /// Run on the GTK main thread after the shared language revision changes.
 pub(super) fn refresh_bindings() {
     // Invoke outside RefCell borrows: GTK property notifications may rebind text.

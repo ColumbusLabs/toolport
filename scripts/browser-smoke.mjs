@@ -738,6 +738,30 @@ try {
     activityReads,
   );
   await page.screenshot({ path: path.join(output, "activity-narrow-idle.png") });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseURL}/fixtures/?claude-profiles`);
+  await page.getByRole("button", { name: "Clients", exact: true }).click();
+  const claudeGroup = page.getByRole("button", {
+    name: "Claude Code profiles",
+    exact: true,
+  });
+  await expect(claudeGroup).toHaveAttribute("aria-expanded", "true");
+  await expect(claudeGroup).toContainText("3 profiles");
+  await expect(claudeGroup).toContainText("1 of 3 connected");
+  await expect(page.getByText(/^Also found ~\/\.claude:/)).toBeVisible();
+  await page.screenshot({ path: path.join(output, "clients-claude-profiles.png") });
+  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /^~\/\.claude\s*me@work/ }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 820, height: 1000 });
+  await page.screenshot({
+    path: path.join(output, "clients-claude-profiles-narrow.png"),
+  });
+  await page.getByRole("button", { name: /^claude2/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Claude Code (claude2)", exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 1240, height: 900 });
   await page.goto(`${baseURL}/fixtures/?logos`);
   await expect(page.getByText("Dark logo fixture")).toBeVisible();

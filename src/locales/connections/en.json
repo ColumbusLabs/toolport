@@ -1042,5 +1042,21 @@
   "Your local HTTP endpoint and gateway processes.": "Your local HTTP endpoint and gateway processes.",
   "Your pick": "Your pick",
   "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.": "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.",
-  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them."
+  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.",
+  "{value0} profile": "{value0} profile",
+  "{value0} profiles": "{value0} profiles",
+  "{connected} of {total} connected": "{connected} of {total} connected",
+  "Claude Code profiles": "Claude Code profiles",
+  "No claude.ai sign-in": "No claude.ai sign-in",
+  "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.": "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.",
+  "Show": "Show",
+  "Full tool list": "Full tool list",
+  "Browse a server, then call tools": "Browse a server, then call tools",
+  "Search, then call tools": "Search, then call tools",
+  "No local MCP servers": "No local MCP servers",
+  "{value0} other server": "{value0} other server",
+  "{value0} other servers": "{value0} other servers",
+  "{value0} local MCP server": "{value0} local MCP server",
+  "{value0} local MCP servers": "{value0} local MCP servers",
+  "Configuration could not be read safely": "Configuration could not be read safely"
 }

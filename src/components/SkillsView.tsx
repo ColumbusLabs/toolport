@@ -27,6 +27,7 @@ import {
   ScrollText,
   Search,
   Sparkles,
+  Trash2,
   Unlink,
   User,
 } from "lucide-react";
@@ -39,6 +40,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -47,9 +51,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { fixSkillIssue, openSkillPath, setSkillState, skillsInventory } from "@/lib/api";
-import { SKILLS_REFRESH_EVENT } from "@/lib/shortcuts";
-import { translate, useI18n } from "@/lib/i18n";
+import {
+  dismissSkillIssue,
+  fixSkillIssue,
+  openSkillPath,
+  openSkillPathWith,
+  removeSkill,
+  setSkillState,
+  skillOpenApps,
+  skillsInventory,
+} from "@/lib/api";
+import { SKILLS_REFRESH_EVENT, SKILLS_SEARCH_EVENT } from "@/lib/shortcuts";
+import { getLocale, translate, useI18n } from "@/lib/i18n";
 import { toastError } from "@/lib/toast";
 import type {
   RuleFileEntry,
@@ -57,6 +70,7 @@ import type {
   SkillEntry,
   SkillIssue,
   SkillLoadState,
+  SkillOpenApp,
   SkillSource,
   SkillsInventory,
   SkillWanted,
@@ -220,11 +234,14 @@ function AgentHeader({
   focus,
   onFocus,
   label,
+  skills = false,
 }: {
   agents: SkillAgent[];
   focus: string | null;
   onFocus: (id: string | null) => void;
   label: string;
+  /** The Skills list keeps what an agent finds, switched off or not, so it can go back on. */
+  skills?: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -239,7 +256,11 @@ function AgentHeader({
               <button
                 type="button"
                 aria-pressed={focus === agent.id}
-                aria-label={t("Show only what {client} loads", { client: agent.name })}
+                aria-label={
+                  skills
+                    ? t("Show only skills {client} finds", { client: agent.name })
+                    : t("Show only what {client} loads", { client: agent.name })
+                }
                 onClick={() => onFocus(focus === agent.id ? null : agent.id)}
                 className={cn(
                   "relative flex h-7 items-center justify-center rounded-md transition-colors hover:bg-accent/60 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
@@ -311,24 +332,81 @@ function FileActions({
   path,
   openLabel,
   project,
+  canOpen = true,
+  children,
 }: {
   target: string;
   path: string;
   openLabel: string;
   project: string | null;
+  /** False for a link to a missing folder: there is nothing to open, only where it sits. */
+  canOpen?: boolean;
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
-  const run = (reveal: boolean) =>
-    openSkillPath(target, reveal, project).catch((error) =>
-      toastError(t("Couldn't open {path}", { path }), {
-        description: errorText(error),
-      }),
-    );
+  const [apps, setApps] = useState<SkillOpenApp[] | null>(null);
+  const failed = (error: unknown) =>
+    toastError(t("Couldn't open {path}", { path }), {
+      description: errorText(error),
+    });
+  const run = (reveal: boolean) => openSkillPath(target, reveal, project).catch(failed);
+  const chosen = apps?.find((app) => app.chosen) ?? apps?.find((app) => app.default);
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" onClick={() => void run(false)}>
-        <FilePen /> {openLabel}
-      </Button>
+      {canOpen && (
+        <div className="flex">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-r-none"
+            onClick={() => void run(false)}
+          >
+            <FilePen /> {openLabel}
+          </Button>
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) void skillOpenApps(target).then(setApps, () => setApps([]));
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="rounded-l-none border-l-0"
+                aria-label={t("Open with")}
+              >
+                <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-48">
+              <DropdownMenuLabel>{t("Open with")}</DropdownMenuLabel>
+              {apps === null ? (
+                <DropdownMenuItem disabled>{t("Loading…")}</DropdownMenuItem>
+              ) : apps.length === 0 ? (
+                <DropdownMenuItem disabled>{t("No other apps found")}</DropdownMenuItem>
+              ) : (
+                <DropdownMenuRadioGroup
+                  value={chosen?.id ?? ""}
+                  onValueChange={(app) => {
+                    setApps(
+                      (prev) =>
+                        prev?.map((each) => ({ ...each, chosen: each.id === app })) ??
+                        prev,
+                    );
+                    void openSkillPathWith(target, app, project).catch(failed);
+                  }}
+                >
+                  {apps.map((app) => (
+                    <DropdownMenuRadioItem key={app.id} value={app.id}>
+                      {app.default ? t("{app} (default)", { app: app.name }) : app.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
       <Button variant="outline" size="sm" onClick={() => void run(true)}>
         <FolderOpen /> {t("Reveal")}
       </Button>
@@ -353,6 +431,7 @@ function FileActions({
         </TooltipTrigger>
         <TooltipContent>{t("Copy path")}</TooltipContent>
       </Tooltip>
+      {children}
     </div>
   );
 }
@@ -380,17 +459,29 @@ function PanelHeading({ children, aside }: { children: ReactNode; aside?: ReactN
 function StateControl({
   agent,
   skill,
-  busy,
   onChange,
 }: {
   agent: SkillAgent;
   skill: SkillEntry;
-  busy: boolean;
-  onChange: (wanted: SkillWanted) => void;
+  /** Resolves false when the write failed, so the control shows the saved state again. */
+  onChange: (wanted: SkillWanted) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const stateLabel = useStateLabel();
-  const current = skill.states[agent.id]?.state;
+  // What was just picked, shown until the write's scan arrives (a new `skill`), so a second
+  // click or arrow press starts from it rather than from the state before the first.
+  const [picked, setPicked] = useState<{ skill: SkillEntry; wanted: SkillWanted } | null>(
+    null,
+  );
+  const saved = skill.states[agent.id]?.state;
+  const current = picked?.skill === skill ? picked.wanted : saved;
+  const pick = (wanted: SkillWanted) => {
+    const choice = { skill, wanted };
+    setPicked(choice);
+    void onChange(wanted).then((ok) => {
+      if (!ok) setPicked((now) => (now === choice ? null : now));
+    });
+  };
   if (!current)
     return <span className="text-xs text-muted-foreground">{t("Not loaded")}</span>;
   if (current === "broken") return <Badge variant="destructive">{t("Broken")}</Badge>;
@@ -410,7 +501,7 @@ function StateControl({
       </Tooltip>
     );
   }
-  if (agent.id === "claude-code") {
+  if (agent.nameOnly) {
     const options: [SkillWanted, string][] = [
       ["on", t("On")],
       ["name-only", t("Name only")],
@@ -419,11 +510,11 @@ function StateControl({
     // Radio group keyboard pattern: one tab stop, arrows move and select.
     const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
       const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-      if (step === undefined || busy) return;
+      if (step === undefined) return;
       event.preventDefault();
       const index = options.findIndex(([value]) => value === current);
       const next = options[(index + step + options.length) % options.length][0];
-      onChange(next);
+      pick(next);
       event.currentTarget.parentElement
         ?.querySelector<HTMLButtonElement>(`[data-value="${next}"]`)
         ?.focus();
@@ -443,8 +534,7 @@ function StateControl({
             aria-checked={current === value}
             tabIndex={current === value ? 0 : -1}
             onKeyDown={onKeyDown}
-            disabled={busy}
-            onClick={() => current !== value && onChange(value)}
+            onClick={() => current !== value && pick(value)}
             className={cn(
               "rounded px-2 py-0.5 text-xs transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50",
               current === value
@@ -461,12 +551,11 @@ function StateControl({
   return (
     <Switch
       checked={current !== "off"}
-      disabled={busy}
       aria-label={t("Load {skill} in {client}", {
         skill: skill.name,
         client: agent.name,
       })}
-      onCheckedChange={(checked) => onChange(checked ? "on" : "off")}
+      onCheckedChange={(checked) => pick(checked ? "on" : "off")}
     />
   );
 }
@@ -475,14 +564,14 @@ function SkillDetail({
   skill,
   agents,
   project,
-  busy,
   onChange,
+  onRemove,
 }: {
   skill: SkillEntry;
   agents: SkillAgent[];
   project: string | null;
-  busy: boolean;
-  onChange: (agent: SkillAgent, wanted: SkillWanted) => void;
+  onChange: (agent: SkillAgent, wanted: SkillWanted) => Promise<boolean>;
+  onRemove: () => Promise<void>;
 }) {
   const { t } = useI18n();
   const source = useSourceLabels()(skill.source);
@@ -491,6 +580,9 @@ function SkillDetail({
     return state === "on" || state === "name-only";
   }).length;
   const ratio = Math.min(1, skill.descriptionChars / DESCRIPTION_CAP);
+  // `links` holds folders, the skill's own among them; only the other ways in are news.
+  const ownFolder = folderOf(skill);
+  const otherLinks = skill.links.filter((l) => l !== skill.path && l !== ownFolder);
   return (
     <div>
       <div className="flex items-start gap-3">
@@ -520,7 +612,37 @@ function SkillDetail({
           path={skill.path}
           openLabel={t("Open SKILL.md")}
           project={project}
-        />
+          canOpen={skill.source !== "broken"}
+        >
+          {skill.removable && (
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={t("Remove {skill}", { skill: skill.name })}
+                  title={t("Remove {skill}", { skill: skill.name })}
+                >
+                  <Trash2 />
+                </Button>
+              }
+              title={t("Remove {skill}?", { skill: skill.name })}
+              description={
+                skill.trashOnRemove
+                  ? t(
+                      "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.",
+                    )
+                  : t(
+                      "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.",
+                      { path: ownFolder },
+                    )
+              }
+              confirmLabel={t("Remove")}
+              destructive
+              onConfirm={onRemove}
+            />
+          )}
+        </FileActions>
       </div>
 
       {skill.source !== "broken" && (
@@ -548,8 +670,8 @@ function SkillDetail({
           <div className="mt-1 flex justify-between text-xs text-muted-foreground">
             <span>
               {t("{count} of {cap} characters", {
-                count: skill.descriptionChars.toLocaleString(),
-                cap: DESCRIPTION_CAP.toLocaleString(),
+                count: skill.descriptionChars.toLocaleString(getLocale()),
+                cap: DESCRIPTION_CAP.toLocaleString(getLocale()),
               })}
             </span>
             <span>{t("Claude Code's limit")}</span>
@@ -561,14 +683,12 @@ function SkillDetail({
       <Field label={t("Path")}>
         <span className="font-mono text-xs">{skill.path}</span>
       </Field>
-      {skill.links.filter((l) => l !== skill.path).length > 0 && (
+      {otherLinks.length > 0 && (
         <Field label={t("Reached by")}>
           <span className="flex flex-col gap-0.5 font-mono text-xs">
-            {skill.links
-              .filter((l) => l !== skill.path)
-              .map((link) => (
-                <span key={link}>{link}</span>
-              ))}
+            {otherLinks.map((link) => (
+              <span key={link}>{link}</span>
+            ))}
           </span>
         </Field>
       )}
@@ -579,7 +699,7 @@ function SkillDetail({
             ? t("{size} · 1 line", { size: fmtBytes(skill.sizeBytes) })
             : t("{size} · {lines} lines", {
                 size: fmtBytes(skill.sizeBytes),
-                lines: skill.lines.toLocaleString(),
+                lines: skill.lines.toLocaleString(getLocale()),
               })}
         </Field>
       )}
@@ -620,7 +740,6 @@ function SkillDetail({
               <StateControl
                 agent={agent}
                 skill={skill}
-                busy={busy}
                 onChange={(wanted) => onChange(agent, wanted)}
               />
             </li>
@@ -640,6 +759,15 @@ function SkillDetail({
 }
 
 /** Why an agent doesn't load this rules file: the files it reads instead. */
+/**
+ * The folder a skill's file sits in, as shown. The file may be a link to one with another
+ * name, so this drops the last part of the path whatever it is called. A broken link has no
+ * file; the link is the folder.
+ */
+function folderOf(skill: SkillEntry): string {
+  return skill.source === "broken" ? skill.path : skill.path.replace(/[\\/][^\\/]+$/, "");
+}
+
 function otherRulesNote(agent: SkillAgent, rule: RuleFileEntry): string {
   const others = agent.ruleLocations.filter((path) => path !== rule.path);
   return others.length > 0
@@ -764,13 +892,15 @@ function RuleDetail({
 function IssueCard({
   issue,
   agents,
-  busy,
   onFix,
+  onDismiss,
+  onSkill,
 }: {
   issue: SkillIssue;
   agents: SkillAgent[];
-  busy: boolean;
   onFix: () => Promise<void>;
+  onDismiss: () => void;
+  onSkill: (name: string) => void;
 }) {
   const { t } = useI18n();
   const named = issue.agents
@@ -785,7 +915,12 @@ function IssueCard({
       <Info className="size-4 text-info" />
     );
   return (
-    <article className="flex gap-3 rounded-xl border bg-card p-4">
+    <article
+      className={cn(
+        "flex gap-3 rounded-xl border bg-card p-4",
+        issue.dismissed && "opacity-70",
+      )}
+    >
       <span
         className={cn(
           "flex size-8 shrink-0 items-center justify-center rounded-lg",
@@ -801,13 +936,12 @@ function IssueCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h3 className="min-w-0 flex-1 text-sm font-semibold">{issue.title}</h3>
-          {issue.fixLabel && (
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            {issue.dismissed ? t("Show again") : t("Dismiss")}
+          </Button>
+          {issue.fixLabel && !issue.dismissed && (
             <ConfirmDialog
-              trigger={
-                <Button size="sm" disabled={busy}>
-                  {issue.fixLabel}
-                </Button>
-              }
+              trigger={<Button size="sm">{issue.fixLabel}</Button>}
               title={issue.fixLabel}
               description={t(
                 "Toolport backs up any config file before it changes it, and never deletes a skill folder.",
@@ -830,13 +964,16 @@ function IssueCard({
               </span>
             ))}
             {issue.skillNames.slice(0, 12).map((name) => (
-              <span
+              <button
+                type="button"
                 key={name}
-                className="flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs"
+                title={t("Show {skill}", { skill: name })}
+                onClick={() => onSkill(name)}
+                className="flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <Sparkles className="size-3 text-muted-foreground" />
                 {name}
-              </span>
+              </button>
             ))}
             {issue.skillNames.length > 12 && (
               <span className="text-xs text-muted-foreground">
@@ -928,7 +1065,21 @@ export function SkillsView() {
   const [inv, setInv] = useState<SkillsInventory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  // Writes run one after another in the order made. A quick second click is kept, and no
+  // control has to be disabled meanwhile, which would take keyboard focus away.
+  const writes = useRef({ tail: Promise.resolve() as Promise<unknown>, waiting: 0 });
+  function enqueue<T>(work: () => Promise<T>): Promise<{ value: T; last: boolean }> {
+    const queue = writes.current;
+    queue.waiting++;
+    const run = queue.tail
+      .then(work, work)
+      .finally(() => {
+        queue.waiting--;
+      })
+      .then((value) => ({ value, last: queue.waiting === 0 }));
+    queue.tail = run.catch(() => undefined);
+    return run;
+  }
   const [project, setProject] = useState<string | null>(readProject);
   const [tab, setTab] = useState<Tab>("skills");
   const [query, setQuery] = useState("");
@@ -936,11 +1087,24 @@ export function SkillsView() {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(["built-in", "parked"]),
+    // Open on your own skills; the rest are a click away.
+    () =>
+      new Set([
+        "account",
+        "package",
+        "built-in",
+        "library",
+        "parked",
+        "issues:dismissed",
+      ]),
   );
 
   // Latest request wins, so a slow scan of an old project can't overwrite a newer one.
   const request = useRef(0);
+  const hasInventory = useRef(false);
+  useEffect(() => {
+    hasInventory.current = inv !== null;
+  }, [inv]);
   // The project the user has picked right now; a write that returns for another one is stale.
   const projectRef = useRef(project);
   const fetchInventory = useCallback(() => {
@@ -960,7 +1124,14 @@ export function SkillsView() {
           }
         },
         (e) => {
-          if (id === request.current) setError(errorText(e));
+          if (id !== request.current) return;
+          setError(errorText(e));
+          // With a page on screen the error screen doesn't show, so say the scan failed.
+          if (hasInventory.current) {
+            toastError(t("Couldn't read skills and rules"), {
+              description: errorText(e),
+            });
+          }
         },
       )
       .finally(() => {
@@ -984,6 +1155,32 @@ export function SkillsView() {
     window.addEventListener(SKILLS_REFRESH_EVENT, onRefresh);
     return () => window.removeEventListener(SKILLS_REFRESH_EVENT, onRefresh);
   }, [load]);
+
+  // Its Find shortcut focuses this page's search, from the Skills tab when Needs a look
+  // (which has none) is open.
+  const searchRef = useRef<HTMLInputElement>(null);
+  const tabRef = useRef(tab);
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+  useEffect(() => {
+    const onSearch = () => {
+      if (tabRef.current === "issues") {
+        setFocus(null);
+        setTab("skills");
+      }
+      let frames = 0;
+      const tick = () => {
+        if (searchRef.current) {
+          searchRef.current.focus();
+          searchRef.current.select();
+        } else if (frames++ < 15) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+    window.addEventListener(SKILLS_SEARCH_EVENT, onSearch);
+    return () => window.removeEventListener(SKILLS_SEARCH_EVENT, onSearch);
+  }, []);
 
   /** Show a write's result unless the user has moved to another project meanwhile. */
   function applyWrite(next: SkillsInventory, forProject: string | null) {
@@ -1024,8 +1221,14 @@ export function SkillsView() {
     );
   }, [inv, focus, needle]);
 
+  // The picked skill while the list still shows it; otherwise the first row shown, in the
+  // page's group order with collapsed groups skipped, so the details never describe a hidden row.
   const skill =
-    inv?.skills.find((s) => s.key === selectedSkill) ?? visibleSkills[0] ?? null;
+    visibleSkills.find((s) => s.key === selectedSkill) ??
+    SOURCE_ORDER.filter((source) => !collapsed.has(source) || Boolean(needle))
+      .map((source) => visibleSkills.find((s) => s.source === source))
+      .find(Boolean) ??
+    null;
   const rule = inv?.rules.find((r) => r.key === selectedRule) ?? visibleRules[0] ?? null;
 
   function switchProject(next: string | null) {
@@ -1049,14 +1252,19 @@ export function SkillsView() {
     switchProject(null);
   }
 
-  async function change(agent: SkillAgent, target: SkillEntry, wanted: SkillWanted) {
-    setBusy(true);
+  async function change(
+    agent: SkillAgent,
+    target: SkillEntry,
+    wanted: SkillWanted,
+  ): Promise<boolean> {
     const forProject = project;
     try {
-      applyWrite(
-        await setSkillState(agent.id, target.key, wanted, forProject),
-        forProject,
+      const { value, last } = await enqueue(() =>
+        setSkillState(agent.id, target.key, wanted, forProject),
       );
+      // Only the last of a run of quick changes redraws, so controls keep what was clicked.
+      if (!last) return true;
+      applyWrite(value, forProject);
       toast.success(
         wanted === "off"
           ? t("Turned off {skill} in {client}", {
@@ -1073,6 +1281,7 @@ export function SkillsView() {
                 client: agent.name,
               }),
       );
+      return true;
     } catch (e) {
       toastError(
         t("Couldn't change {skill} in {client}", {
@@ -1085,26 +1294,80 @@ export function SkillsView() {
       );
       // Show what is on disk now, whatever the write managed to do.
       void load();
-    } finally {
-      setBusy(false);
+      return false;
     }
   }
 
   async function fix(issue: SkillIssue) {
-    setBusy(true);
     const forProject = project;
     try {
-      applyWrite(await fixSkillIssue(issue.id, forProject), forProject);
+      const { value } = await enqueue(() =>
+        fixSkillIssue(issue.id, issue.fingerprint, forProject),
+      );
+      applyWrite(value, forProject);
       toast.success(t("Fixed: {title}", { title: issue.title }));
     } catch (e) {
       toastError(t("Couldn't fix this"), { description: errorText(e) });
       // Part of a fix may have landed before the error; rescan so the page shows it.
       void load();
       throw e;
-    } finally {
-      setBusy(false);
     }
   }
+
+  async function dismiss(issue: SkillIssue) {
+    const forProject = project;
+    try {
+      const { value } = await enqueue(() =>
+        dismissSkillIssue(issue.fingerprint, !issue.dismissed, forProject),
+      );
+      applyWrite(value, forProject);
+    } catch (e) {
+      toastError(t("Couldn't change this"), { description: errorText(e) });
+      // An earlier queued change may have left its result for this write to show.
+      void load();
+    }
+  }
+
+  async function remove(target: SkillEntry) {
+    const forProject = project;
+    try {
+      const { value: removed } = await enqueue(() => removeSkill(target.key, forProject));
+      applyWrite(removed.inventory, forProject);
+      toast.success(
+        removed.trashed
+          ? t("Moved {skill} to the trash", { skill: target.name })
+          : t("Removed the links to {skill}. Its folder stays where it is.", {
+              skill: target.name,
+            }),
+      );
+    } catch (e) {
+      toastError(t("Couldn't remove {skill}", { skill: target.name }), {
+        description: errorText(e),
+      });
+      void load();
+      throw e;
+    }
+  }
+
+  /** Jump from a Needs a look chip to that skill on the Skills tab. */
+  function showSkill(issue: SkillIssue, name: string) {
+    const found = inv?.skills.find(
+      (s) => s.name === name && issue.skills.includes(s.key),
+    );
+    if (!found) return;
+    setQuery("");
+    setFocus(null);
+    setSelectedSkill(found.key);
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.delete(found.source);
+      return next;
+    });
+    setTab("skills");
+  }
+
+  const activeIssues = inv?.issues.filter((i) => !i.dismissed) ?? [];
+  const dismissedIssues = inv?.issues.filter((i) => i.dismissed) ?? [];
 
   // Tabs follow the APG pattern: one tab stop, arrows and Home/End move between tabs.
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
@@ -1136,7 +1399,7 @@ export function SkillsView() {
       false,
     ],
     ["rules", t("Rules"), inv?.rules.length ?? 0, false],
-    ["issues", t("Needs a look"), inv?.issues.length ?? 0, (inv?.issues.length ?? 0) > 0],
+    ["issues", t("Needs a look"), activeIssues.length, activeIssues.length > 0],
   ];
 
   const toolbar = (
@@ -1172,6 +1435,7 @@ export function SkillsView() {
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={tab === "skills" ? t("Search skills") : t("Search rules")}
@@ -1210,7 +1474,7 @@ export function SkillsView() {
             type="button"
             role="tab"
             aria-selected={tab === id}
-            aria-controls={`skills-panel-${id}`}
+            aria-controls={tab === id ? `skills-panel-${id}` : undefined}
             tabIndex={tab === id ? 0 : -1}
             onKeyDown={onTabKey}
             onClick={() => selectTab(id)}
@@ -1280,19 +1544,19 @@ export function SkillsView() {
   }
 
   const banner =
-    inv.issues.length > 0 && tab !== "issues" ? (
+    activeIssues.length > 0 && tab !== "issues" ? (
       <div className="mb-4 flex items-center gap-3 rounded-xl border border-l-4 border-l-warning bg-card px-4 py-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning/14">
           <AlertTriangle className="size-4 text-warning" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">
-            {inv.issues.length === 1
+            {activeIssues.length === 1
               ? t("1 thing needs a look")
-              : t("{count} things need a look", { count: inv.issues.length })}
+              : t("{count} things need a look", { count: activeIssues.length })}
           </span>
           <span className="block truncate text-sm text-muted-foreground">
-            {inv.issues[0].title}
+            {activeIssues[0].title}
           </span>
         </span>
         <Button variant="outline" size="sm" onClick={() => selectTab("issues")}>
@@ -1316,6 +1580,7 @@ export function SkillsView() {
             focus={focus}
             onFocus={setFocus}
             label={t("Skill")}
+            skills
           />
           {groups.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
@@ -1405,8 +1670,8 @@ export function SkillsView() {
               skill={skill}
               agents={skillAgents}
               project={project}
-              busy={busy}
-              onChange={(agent, wanted) => void change(agent, skill, wanted)}
+              onChange={(agent, wanted) => change(agent, skill, wanted)}
+              onRemove={() => remove(skill)}
             />
           ) : (
             <p className="py-10 text-center text-sm text-muted-foreground">
@@ -1514,22 +1779,52 @@ export function SkillsView() {
     body = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
         <section aria-label={t("Needs a look")} className="flex min-w-0 flex-col gap-3">
-          {inv.issues.length === 0 ? (
+          {activeIssues.length === 0 ? (
             <EmptyState
               icon={<Sparkles />}
               title={t("Nothing needs a look")}
               description={t("Every skill and rules file loads the way it's set.")}
             />
           ) : (
-            inv.issues.map((issue) => (
+            activeIssues.map((issue) => (
               <IssueCard
                 key={issue.id}
                 issue={issue}
                 agents={inv.agents}
-                busy={busy}
                 onFix={() => fix(issue)}
+                onDismiss={() => void dismiss(issue)}
+                onSkill={(name) => showSkill(issue, name)}
               />
             ))
+          )}
+          {dismissedIssues.length > 0 && (
+            <>
+              <GroupHeader
+                open={!collapsed.has("issues:dismissed")}
+                onToggle={() =>
+                  setCollapsed((prev) => {
+                    const next = new Set(prev);
+                    if (!next.delete("issues:dismissed")) next.add("issues:dismissed");
+                    return next;
+                  })
+                }
+                icon={<Ban className="size-4" />}
+                label={t("Dismissed")}
+                count={dismissedIssues.length}
+                note={t("Back if anything about them changes")}
+              />
+              {!collapsed.has("issues:dismissed") &&
+                dismissedIssues.map((issue) => (
+                  <IssueCard
+                    key={issue.id}
+                    issue={issue}
+                    agents={inv.agents}
+                    onFix={() => fix(issue)}
+                    onDismiss={() => void dismiss(issue)}
+                    onSkill={(name) => showSkill(issue, name)}
+                  />
+                ))}
+            </>
           )}
         </section>
         <aside aria-label={t("By agent")} className="min-w-0 lg:border-l lg:pl-6">

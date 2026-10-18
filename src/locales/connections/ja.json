@@ -1042,5 +1042,21 @@
   "Your local HTTP endpoint and gateway processes.": "ローカルの HTTP エンドポイントと ゲートウェイ プロセス。",
   "Your pick": "あなたの選択",
   "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.": "サーバーとクライアントは接続されていますが、Toolport はサーバーの健全性を確認できませんでした。以下のチェックを再試行するか、検証せずに続行します。",
-  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "チームの共有サーバーが Toolport に追加されました。ローカル サーバーと LAN サーバーは、確認して有効にするまでオフのままです。"
+  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "チームの共有サーバーが Toolport に追加されました。ローカル サーバーと LAN サーバーは、確認して有効にするまでオフのままです。",
+  "{value0} profile": "{value0} 個のプロファイル",
+  "{value0} profiles": "{value0} 個のプロファイル",
+  "{connected} of {total} connected": "{total} 個中 {connected} 個が接続済み",
+  "Claude Code profiles": "Claude Code のプロファイル",
+  "No claude.ai sign-in": "claude.ai にサインインしていません",
+  "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.": "{folder} も見つかりました: {command} と同じアカウントです。Claude Code がこれを読み込むのは CLAUDE_CONFIG_DIR がここを指しているときだけで、一部のバックグラウンドツールがそうしています。",
+  "Show": "表示",
+  "Full tool list": "完全なツール一覧",
+  "Browse a server, then call tools": "サーバーを参照してからツールを呼び出す",
+  "Search, then call tools": "検索してからツールを呼び出す",
+  "No local MCP servers": "ローカル MCP サーバーはありません",
+  "{value0} other server": "他のサーバー {value0} 台",
+  "{value0} other servers": "他のサーバー {value0} 台",
+  "{value0} local MCP server": "{value0} ローカル MCP サーバー",
+  "{value0} local MCP servers": "{value0} ローカル MCP サーバー",
+  "Configuration could not be read safely": "構成を安全に読み取ることができませんでした"
 }

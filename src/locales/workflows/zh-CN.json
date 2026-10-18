@@ -384,5 +384,21 @@
   "{skill} in {client}": "{client} 中的 {skill}",
   "{client}: {state}": "{client}：{state}",
   "Couldn't copy the path": "无法复制路径",
-  "That project folder is gone. Showing global only.": "该项目文件夹已不存在。仅显示全局内容。"
+  "That project folder is gone. Showing global only.": "该项目文件夹已不存在。仅显示全局内容。",
+  "Open with": "打开方式",
+  "No other apps found": "未找到其他应用",
+  "{app} (default)": "{app}（默认）",
+  "Remove {skill}": "删除 {skill}",
+  "Remove {skill}?": "删除 {skill}？",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "其文件夹会移到回收站，指向它的链接也会删除，所以不会再有客户端加载它。你可以从回收站恢复该文件夹。",
+  "Show again": "重新显示",
+  "Show {skill}": "显示 {skill}",
+  "Couldn't change this": "无法更改",
+  "Moved {skill} to the trash": "已将 {skill} 移到回收站",
+  "Removed the links to {skill}. Its folder stays where it is.": "已删除指向 {skill} 的链接。其文件夹保持原位。",
+  "Couldn't remove {skill}": "无法删除 {skill}",
+  "Dismissed": "已忽略",
+  "Back if anything about them changes": "内容有变化时会重新出现",
+  "Show only skills {client} finds": "只显示 {client} 找到的技能",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "只会移除指向它的链接，因此没有客户端会加载它。它在 {path} 的文件夹保持原样。"
 }

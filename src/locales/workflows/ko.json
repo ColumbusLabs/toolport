@@ -384,5 +384,21 @@
   "{skill} in {client}": "{client}의 {skill}",
   "{client}: {state}": "{client}: {state}",
   "Couldn't copy the path": "경로를 복사할 수 없습니다",
-  "That project folder is gone. Showing global only.": "해당 프로젝트 폴더가 없습니다. 전역 항목만 표시합니다."
+  "That project folder is gone. Showing global only.": "해당 프로젝트 폴더가 없습니다. 전역 항목만 표시합니다.",
+  "Open with": "다른 앱으로 열기",
+  "No other apps found": "다른 앱을 찾을 수 없습니다",
+  "{app} (default)": "{app} (기본값)",
+  "Remove {skill}": "{skill} 제거",
+  "Remove {skill}?": "{skill}을(를) 제거할까요?",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "폴더는 휴지통으로 이동하고 이 폴더로 연결된 링크는 제거되므로 어떤 클라이언트도 불러오지 않습니다. 폴더는 휴지통에서 복원할 수 있습니다.",
+  "Show again": "다시 표시",
+  "Show {skill}": "{skill} 보기",
+  "Couldn't change this": "변경할 수 없습니다",
+  "Moved {skill} to the trash": "{skill}을(를) 휴지통으로 옮겼습니다",
+  "Removed the links to {skill}. Its folder stays where it is.": "{skill}(으)로 연결된 링크를 제거했습니다. 폴더는 그대로 있습니다.",
+  "Couldn't remove {skill}": "{skill}을(를) 제거할 수 없습니다",
+  "Dismissed": "숨김",
+  "Back if anything about them changes": "내용이 바뀌면 다시 나타납니다",
+  "Show only skills {client} finds": "{client}이(가) 찾는 스킬만 보기",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "링크만 제거되므로 어떤 클라이언트도 불러오지 않습니다. {path}에 있는 폴더는 그대로 남습니다."
 }

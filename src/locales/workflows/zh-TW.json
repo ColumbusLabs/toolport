@@ -384,5 +384,21 @@
   "{skill} in {client}": "{client} 中的 {skill}",
   "{client}: {state}": "{client}：{state}",
   "Couldn't copy the path": "無法複製路徑",
-  "That project folder is gone. Showing global only.": "該專案資料夾已不存在。僅顯示全域內容。"
+  "That project folder is gone. Showing global only.": "該專案資料夾已不存在。僅顯示全域內容。",
+  "Open with": "開啟方式",
+  "No other apps found": "找不到其他應用程式",
+  "{app} (default)": "{app}（預設）",
+  "Remove {skill}": "刪除 {skill}",
+  "Remove {skill}?": "刪除 {skill}？",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "其資料夾會移到垃圾桶，指向它的連結也會刪除，所以不會再有用戶端載入它。你可以從垃圾桶還原該資料夾。",
+  "Show again": "重新顯示",
+  "Show {skill}": "顯示 {skill}",
+  "Couldn't change this": "無法變更",
+  "Moved {skill} to the trash": "已將 {skill} 移到垃圾桶",
+  "Removed the links to {skill}. Its folder stays where it is.": "已刪除指向 {skill} 的連結。其資料夾保持原位。",
+  "Couldn't remove {skill}": "無法刪除 {skill}",
+  "Dismissed": "已忽略",
+  "Back if anything about them changes": "內容有變化時會重新出現",
+  "Show only skills {client} finds": "只顯示 {client} 找到的技能",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "只會移除指向它的連結，因此沒有用戶端會載入它。它在 {path} 的資料夾保持原樣。"
 }

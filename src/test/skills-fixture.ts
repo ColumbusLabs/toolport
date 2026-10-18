@@ -21,6 +21,7 @@ const agent = (
   supportsSkills: true,
   verified: true,
   canToggle,
+  nameOnly: id === "claude-code",
   switchNote,
   roots: roots.map((path) => ({ path, label: "Skills folder", exists: true })),
   rulesNote: null,
@@ -48,7 +49,7 @@ const agents: SkillAgent[] = [
     "~/.config/opencode/skills",
     "~/.agents/skills",
   ]),
-  agent("grok", "Grok", false, "Turn skills off with /skills inside Grok.", [
+  agent("grok", "Grok", true, "[skills] disabled in ~/.grok/config.toml", [
     "~/.grok/skills",
     "~/.agents/skills",
   ]),
@@ -71,11 +72,14 @@ const skill = (
   source: "yours",
   sourceNote: "Yours",
   editable: true,
+  removable: true,
+  trashOnRemove: true,
   sizeBytes: 4200,
   lines: 96,
   modifiedSecs: 1_760_000_000,
   gitRepo: null,
-  links: [`~/.agents/skills/${name}/SKILL.md`],
+  // The backend lists folders here, the skill's own one included.
+  links: [`~/.agents/skills/${name}`],
   states: every("on", "~/.agents/skills"),
   preview: `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`,
   ...extra,
@@ -114,6 +118,8 @@ export function skillsFixture(): SkillsInventory {
         folder: "/home/you/.claude/skills/pdf",
         source: "account",
         sourceNote: "Synced from your claude.ai account",
+        removable: false,
+        trashOnRemove: false,
         states: {
           "claude-code": { state: "on", via: "~/.claude/skills" },
           cursor: { state: "on", via: "~/.claude/skills" },
@@ -127,6 +133,8 @@ export function skillsFixture(): SkillsInventory {
         source: "package",
         sourceNote: "Installed by a system package; updates replace edits",
         editable: false,
+        removable: false,
+        trashOnRemove: false,
       }),
       skill("computer-use", "", {
         key: "/home/you/.grok/skills/computer-use",
@@ -135,6 +143,8 @@ export function skillsFixture(): SkillsInventory {
         source: "broken",
         sourceNote: "Link to a missing folder",
         editable: false,
+        removable: false,
+        trashOnRemove: false,
         sizeBytes: 0,
         lines: 0,
         modifiedSecs: null,
@@ -188,6 +198,8 @@ export function skillsFixture(): SkillsInventory {
         skills: ["/home/you/.agents/skills/screenshot/SKILL.md"],
         skillNames: ["screenshot"],
         fixLabel: "Turn off where possible",
+        fingerprint: "off-elsewhere:00000001",
+        dismissed: false,
       },
       {
         id: "broken-links",
@@ -199,6 +211,8 @@ export function skillsFixture(): SkillsInventory {
         skills: ["/home/you/.grok/skills/computer-use"],
         skillNames: ["computer-use"],
         fixLabel: "Remove link",
+        fingerprint: "broken-links:00000002",
+        dismissed: false,
       },
       {
         id: "rules-imports",
@@ -210,6 +224,8 @@ export function skillsFixture(): SkillsInventory {
         skills: [],
         skillNames: [],
         fixLabel: null,
+        fingerprint: "rules-imports:00000003",
+        dismissed: false,
       },
     ],
   };

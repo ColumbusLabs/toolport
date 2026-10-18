@@ -384,5 +384,21 @@
   "{skill} in {client}": "{skill} no {client}",
   "{client}: {state}": "{client}: {state}",
   "Couldn't copy the path": "Não foi possível copiar o caminho",
-  "That project folder is gone. Showing global only.": "Essa pasta de projeto não existe mais. Mostrando só o global."
+  "That project folder is gone. Showing global only.": "Essa pasta de projeto não existe mais. Mostrando só o global.",
+  "Open with": "Abrir com",
+  "No other apps found": "Nenhum outro app encontrado",
+  "{app} (default)": "{app} (padrão)",
+  "Remove {skill}": "Remover {skill}",
+  "Remove {skill}?": "Remover {skill}?",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "A pasta vai para a lixeira e os links para ela são removidos, então nenhum cliente a carrega. Você pode restaurar a pasta pela lixeira.",
+  "Show again": "Mostrar de novo",
+  "Show {skill}": "Mostrar {skill}",
+  "Couldn't change this": "Não foi possível alterar",
+  "Moved {skill} to the trash": "{skill} foi para a lixeira",
+  "Removed the links to {skill}. Its folder stays where it is.": "Os links para {skill} foram removidos. A pasta continua onde está.",
+  "Couldn't remove {skill}": "Não foi possível remover {skill}",
+  "Dismissed": "Dispensados",
+  "Back if anything about them changes": "Voltam se algo neles mudar",
+  "Show only skills {client} finds": "Mostrar só as skills que {client} encontra",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "Só os links para ela são removidos, então nenhum cliente a carrega. A pasta em {path} fica onde está."
 }

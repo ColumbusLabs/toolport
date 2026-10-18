@@ -1042,5 +1042,21 @@
   "Your local HTTP endpoint and gateway processes.": "Votre point d'accès HTTP local et les processus de passerelle.",
   "Your pick": "Votre choix",
   "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.": "Vos serveurs et votre client sont connectés, mais Toolport n'a pas pu vérifier l'état du serveur. Réessayez la vérification ci-dessous ou continuez sans vérification.",
-  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "Les serveurs partagés de votre équipe ont été ajoutés à Toolport. Les serveurs locaux et LAN restent désactivés jusqu'à ce que vous les examiniez et les activiez."
+  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "Les serveurs partagés de votre équipe ont été ajoutés à Toolport. Les serveurs locaux et LAN restent désactivés jusqu'à ce que vous les examiniez et les activiez.",
+  "{value0} profile": "{value0} profil",
+  "{value0} profiles": "{value0} profils",
+  "{connected} of {total} connected": "{connected} sur {total} connectés",
+  "Claude Code profiles": "Profils Claude Code",
+  "No claude.ai sign-in": "Aucune connexion claude.ai",
+  "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.": "{folder} a aussi été trouvé : le même compte que {command}. Claude Code ne le lit que lorsque CLAUDE_CONFIG_DIR pointe dessus, comme le font certains outils en arrière-plan.",
+  "Show": "Afficher",
+  "Full tool list": "Liste complète des outils",
+  "Browse a server, then call tools": "Parcourir un serveur, puis appeler des outils",
+  "Search, then call tools": "Rechercher, puis appeler des outils",
+  "No local MCP servers": "Aucun serveur MCP local",
+  "{value0} other server": "{value0} autre serveur",
+  "{value0} other servers": "{value0} autres serveurs",
+  "{value0} local MCP server": "{value0} serveur MCP local",
+  "{value0} local MCP servers": "{value0} serveurs locaux MCP",
+  "Configuration could not be read safely": "La configuration n'a pas pu être lue en toute sécurité"
 }

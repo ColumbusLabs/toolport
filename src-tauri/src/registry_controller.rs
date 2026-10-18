@@ -3470,6 +3470,7 @@ mod tests {
                     gateway_installed: false,
                     entry_state: GatewayEntryState::Absent,
                     error: None,
+                    claude_profile: None,
                 },
             }
         }

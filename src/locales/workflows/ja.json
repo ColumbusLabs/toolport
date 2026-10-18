@@ -384,5 +384,21 @@
   "{skill} in {client}": "{client} の {skill}",
   "{client}: {state}": "{client}: {state}",
   "Couldn't copy the path": "パスをコピーできませんでした",
-  "That project folder is gone. Showing global only.": "そのプロジェクトフォルダーはなくなりました。グローバルのみ表示します。"
+  "That project folder is gone. Showing global only.": "そのプロジェクトフォルダーはなくなりました。グローバルのみ表示します。",
+  "Open with": "このアプリで開く",
+  "No other apps found": "他のアプリが見つかりません",
+  "{app} (default)": "{app}（既定）",
+  "Remove {skill}": "{skill} を削除",
+  "Remove {skill}?": "{skill} を削除しますか？",
+  "Its folder goes to the trash and links to it are removed, so no client loads it. You can restore the folder from the trash.": "フォルダーはゴミ箱に移動され、そこへのリンクも削除されるため、どのクライアントも読み込まなくなります。フォルダーはゴミ箱から復元できます。",
+  "Show again": "再表示",
+  "Show {skill}": "{skill} を表示",
+  "Couldn't change this": "変更できませんでした",
+  "Moved {skill} to the trash": "{skill} をゴミ箱に移動しました",
+  "Removed the links to {skill}. Its folder stays where it is.": "{skill} へのリンクを削除しました。フォルダーはそのままです。",
+  "Couldn't remove {skill}": "{skill} を削除できませんでした",
+  "Dismissed": "非表示",
+  "Back if anything about them changes": "内容が変わると再表示されます",
+  "Show only skills {client} finds": "{client} が見つけるスキルだけを表示",
+  "Only the links to it are removed, so no client loads it. Its folder at {path} stays where it is.": "リンクだけを削除するので、どのクライアントも読み込まなくなります。{path} のフォルダーはそのまま残ります。"
 }

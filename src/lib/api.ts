@@ -23,6 +23,8 @@ import type {
   SavingsSummary,
   SearchTrace,
   SkillsInventory,
+  SkillOpenApp,
+  RemovedSkill,
   SkillWanted,
   ToolIdentity,
   ServerEntry,
@@ -1163,9 +1165,10 @@ export function setSkillState(
 /** Apply the automatic fix for one "Needs a look" item. Returns a fresh scan. */
 export function fixSkillIssue(
   issue: string,
+  fingerprint: string,
   project: string | null,
 ): Promise<SkillsInventory> {
-  return invoke<SkillsInventory>("fix_skill_issue", { issue, project });
+  return invoke<SkillsInventory>("fix_skill_issue", { issue, fingerprint, project });
 }
 
 /** Open a skill or rules file, or reveal its folder. Only inventory paths are accepted. */
@@ -1175,4 +1178,36 @@ export function openSkillPath(
   project: string | null,
 ): Promise<void> {
   return invoke("open_skill_path", { path, reveal, project });
+}
+
+/** Open a skill or rules file in `app` and keep using that app for these files. */
+export function openSkillPathWith(
+  path: string,
+  app: string,
+  project: string | null,
+): Promise<void> {
+  return invoke("open_skill_path_with", { path, app, project });
+}
+
+/** Apps that can open a file like `path`, default first. */
+export function skillOpenApps(path: string): Promise<SkillOpenApp[]> {
+  return invoke<SkillOpenApp[]>("skill_open_apps", { path });
+}
+
+/** Move a skill to the trash and remove the links that reach it. */
+export function removeSkill(key: string, project: string | null): Promise<RemovedSkill> {
+  return invoke<RemovedSkill>("remove_skill", { key, project });
+}
+
+/** Hide a "Needs a look" item until it changes, or show it again. Returns a fresh scan. */
+export function dismissSkillIssue(
+  fingerprint: string,
+  dismissed: boolean,
+  project: string | null,
+): Promise<SkillsInventory> {
+  return invoke<SkillsInventory>("dismiss_skill_issue", {
+    fingerprint,
+    dismissed,
+    project,
+  });
 }

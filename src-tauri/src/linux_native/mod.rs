@@ -5,6 +5,7 @@
 
 mod branding;
 mod catalog;
+mod client_rows;
 mod health;
 mod http_bridge;
 mod i18n;
@@ -500,6 +501,31 @@ fn build_window(
         let settings = settings_page.clone();
         io::while_mapped(&settings_page.root, 15, move || settings.refresh_quietly());
         activity_page.attach(&window);
+    }
+    {
+        // Ctrl+F searches the Skills page when it is open, and the servers list elsewhere;
+        // Ctrl+R scans skills again, as in the React app.
+        let find = gtk::gio::SimpleAction::new("find", None);
+        let (stack_ref, skills, app_ref) = (stack.clone(), skills_page.clone(), app.clone());
+        find.connect_activate(move |_, _| {
+            if stack_ref.visible_child_name().as_deref() == Some("skills") {
+                skills.focus_search();
+            } else {
+                app_ref.activate_action("search-servers", None);
+            }
+        });
+        app.add_action(&find);
+        app.set_accels_for_action("app.search-servers", &[]);
+        app.set_accels_for_action("app.find", &["<Primary>f"]);
+        let rescan = gtk::gio::SimpleAction::new("rescan-skills", None);
+        let (stack_ref, skills) = (stack.clone(), skills_page.clone());
+        rescan.connect_activate(move |_, _| {
+            if stack_ref.visible_child_name().as_deref() == Some("skills") {
+                skills.refresh();
+            }
+        });
+        app.add_action(&rescan);
+        app.set_accels_for_action("app.rescan-skills", &["<Primary>r"]);
     }
     split.set_sidebar(Some(&adw::NavigationPage::new(&sidebar, "Navigation")));
     let content_with_notice = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -2368,6 +2394,10 @@ struct ClientPage {
     profiles: std::rc::Rc<std::cell::RefCell<Vec<state::ProfileView>>>,
     pending_confirmation: std::rc::Rc<std::cell::RefCell<Option<String>>>,
     feedback_timer: std::rc::Rc<std::cell::RefCell<Option<gtk::glib::SourceId>>>,
+    /// Whether the Claude Code group shows its profiles. Kept across rescans.
+    claude_open: std::rc::Rc<std::cell::Cell<bool>>,
+    /// Whether copies of the default Claude Code profile are listed as rows.
+    claude_copies_shown: std::rc::Rc<std::cell::Cell<bool>>,
 }
 
 impl ClientPage {
@@ -2408,11 +2438,18 @@ impl ClientPage {
         page.set_margin_bottom(20);
         page.set_margin_start(20);
         page.set_margin_end(20);
-        let page_actions = wrapping_actions();
-        page_actions.insert(&add_location, -1);
-        page_actions.insert(&import_button, -1);
-        page.append(&page_actions);
-        page.append(&{
+        // Title on the left, the page's two actions on the right.
+        let intro = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+        let intro_copy = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        intro_copy.set_hexpand(true);
+        intro.append(&intro_copy);
+        let page_actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        page_actions.set_valign(gtk::Align::Start);
+        page_actions.append(&add_location);
+        page_actions.append(&import_button);
+        intro.append(&page_actions);
+        page.append(&intro);
+        intro_copy.append(&{
             let widget = gtk::Label::builder()
                 .label(crate::i18n::tr("Your AI clients, one Toolport gateway"))
                 .halign(gtk::Align::Fill)
@@ -2423,7 +2460,7 @@ impl ClientPage {
             l10n::bind_label(&widget, "Your AI clients, one Toolport gateway");
             widget
         });
-        page.append(
+        intro_copy.append(
             &{ let widget = gtk::Label::builder()
                 .label(crate::i18n::tr("Toolport reads each client's local MCP configuration. Existing Toolport entries in extra locations are adopted with a backup."))
                 .halign(gtk::Align::Fill)
@@ -2463,7 +2500,13 @@ impl ClientPage {
         page.append(&summary);
         let list = gtk::Box::new(gtk::Orientation::Vertical, 12);
         page.append(&list);
-        scroller.set_child(Some(&page));
+        // Rows read as one line each; past this width they would only spread apart.
+        let clamp = adw::Clamp::builder()
+            .maximum_size(1080)
+            .tightening_threshold(1000)
+            .child(&page)
+            .build();
+        scroller.set_child(Some(&clamp));
         root.append(&scroller);
 
         let client_page = Self {
@@ -2481,6 +2524,8 @@ impl ClientPage {
             profiles: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
             pending_confirmation: std::rc::Rc::new(std::cell::RefCell::new(None)),
             feedback_timer: std::rc::Rc::new(std::cell::RefCell::new(None)),
+            claude_open: std::rc::Rc::new(std::cell::Cell::new(true)),
+            claude_copies_shown: std::rc::Rc::new(std::cell::Cell::new(false)),
         };
         let page_for_add = client_page.clone();
         add_location.connect_clicked(move |_| page_for_add.add_location());
@@ -2734,23 +2779,72 @@ impl ClientPage {
                 false,
             ));
         }
+        // Several Claude Code profiles share one entry; it sits with the connected clients
+        // when any of its profiles is connected.
+        let claude: Vec<&state::ClientView> = installed
+            .iter()
+            .filter(|client| client.claude_profile.is_some())
+            .copied()
+            .collect();
+        let claude_connected = claude.iter().any(|client| {
+            client.gateway_state == state::ClientGatewayState::Connected
+                && client
+                    .claude_profile
+                    .as_ref()
+                    .is_some_and(|profile| profile.same_as.is_none())
+        });
+        let connected_rows: Vec<&state::ClientView> = connected_clients
+            .iter()
+            .filter(|client| client.claude_profile.is_none())
+            .copied()
+            .collect();
+        let available_rows: Vec<&state::ClientView> = available_clients
+            .iter()
+            .filter(|client| client.claude_profile.is_none())
+            .copied()
+            .collect();
+        let claude_shown = claude
+            .iter()
+            .filter(|client| {
+                client
+                    .claude_profile
+                    .as_ref()
+                    .is_some_and(|profile| profile.same_as.is_none())
+            })
+            .count();
         if !connected_clients.is_empty() {
             self.list.append(&client_section_title(
                 crate::i18n::msg("Connected to Toolport"),
                 connected_clients.len(),
             ));
+            let rows = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            if claude_connected {
+                rows.append(&client_rows::claude_group(&claude, self.clone()));
+            }
+            for client in &connected_rows {
+                rows.append(&client_rows::client_row(
+                    client,
+                    self.clone(),
+                    client_rows::RowStyle::Line,
+                ));
+            }
+            self.list.append(&rows);
         }
-        for client in connected_clients {
-            self.list.append(&client_card(client, self.clone()));
-        }
-        if !available_clients.is_empty() {
+        let available_count =
+            available_rows.len() + if claude_connected { 0 } else { claude_shown };
+        if available_count > 0 {
             self.list.append(&client_section_title(
                 crate::i18n::msg("Available to connect"),
-                available_clients.len(),
+                available_count,
             ));
-        }
-        for client in available_clients {
-            self.list.append(&client_card(client, self.clone()));
+            if !claude.is_empty() && !claude_connected {
+                self.list
+                    .append(&client_rows::claude_group(&claude, self.clone()));
+            }
+            if !available_rows.is_empty() {
+                self.list
+                    .append(&client_rows::available_grid(&available_rows, self));
+            }
         }
         // Supported-but-absent clients: collapsed so they don't crowd the real
         // list, but visible so the user knows what Toolport could manage.
@@ -3034,234 +3128,6 @@ fn wrapping_actions() -> gtk::FlowBox {
         .column_spacing(8)
         .row_spacing(6)
         .build()
-}
-
-fn client_card(client: &state::ClientView, page: ClientPage) -> gtk::Box {
-    let card = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    card.add_css_class("toolport-card");
-    let heading = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    card.append(&heading);
-    let icon = branding::client_logo(&client.id);
-    icon.set_valign(gtk::Align::Start);
-    heading.append(&icon);
-    let copy = gtk::Box::new(gtk::Orientation::Vertical, 3);
-    copy.set_hexpand(true);
-    copy.append(
-        &gtk::Label::builder()
-            .label(&client.name)
-            .halign(gtk::Align::Fill)
-            .xalign(0.0)
-            .wrap(true)
-            .wrap_mode(gtk::pango::WrapMode::WordChar)
-            .tooltip_text(crate::i18n::trf(
-                "{value0}\nClient id: {value1}",
-                &[
-                    ("value0", &client.name.to_string()),
-                    ("value1", &client.id.to_string()),
-                ],
-            ))
-            .css_classes(["heading"])
-            .build(),
-    );
-    let detail = if client.config_error {
-        crate::i18n::tr("Configuration could not be read safely").to_string()
-    } else if client.uses_connectors {
-        let mut detail = crate::i18n::tr("Toolport gateway").to_string();
-        if client.gateway_state == state::ClientGatewayState::Connected {
-            detail.push_str(if client.shared_http {
-                " · Shared HTTP"
-            } else {
-                " · stdio"
-            });
-            // Access is not repeated here: the card's access button shows it.
-        }
-        detail
-    } else if client.gateway_state == state::ClientGatewayState::Connected {
-        // Toolport's own entry is the gateway, not one of the client's servers.
-        let mut detail = crate::i18n::tr("Toolport gateway").to_string();
-        if client.other_server_count > 0 {
-            detail.push_str(&crate::i18n::trf(
-                if client.other_server_count == 1 {
-                    crate::i18n::msg(" · {value0} other server")
-                } else {
-                    crate::i18n::msg(" · {value0} other servers")
-                },
-                &[("value0", &format!("{}", client.other_server_count))],
-            ));
-        }
-        if client.movable_server_count > 0 {
-            detail.push_str(&crate::i18n::trf(
-                " · {value0} to import",
-                &[("value0", &format!("{}", client.movable_server_count))],
-            ));
-        }
-        detail.push_str(if client.shared_http {
-            " · Shared HTTP"
-        } else {
-            " · stdio"
-        });
-        detail
-    } else {
-        let mut detail = crate::i18n::trf(
-            if client.server_count == 1 {
-                crate::i18n::msg("{value0} local MCP server")
-            } else {
-                crate::i18n::msg("{value0} local MCP servers")
-            },
-            &[("value0", &format!("{}", client.server_count))],
-        );
-        if client.movable_server_count > 0 {
-            detail.push_str(&crate::i18n::trf(
-                " · {value0} to import",
-                &[("value0", &format!("{}", client.movable_server_count))],
-            ));
-        }
-        if client.gateway_state == state::ClientGatewayState::Connected {
-            detail.push_str(if client.shared_http {
-                " · Shared HTTP"
-            } else {
-                " · stdio"
-            });
-            // Access is not repeated here: the card's access button shows it.
-        }
-        detail
-    };
-    copy.append(
-        &gtk::Label::builder()
-            .label(detail)
-            .halign(gtk::Align::Fill)
-            .xalign(0.0)
-            .wrap(true)
-            .ellipsize(gtk::pango::EllipsizeMode::End)
-            .css_classes(["toolport-muted"])
-            .build(),
-    );
-    if client.gateway_state == state::ClientGatewayState::Connected {
-        let capabilities = crate::clients::discovery_capabilities(&client.id);
-        let chosen = client
-            .discovery_mode
-            .as_deref()
-            .or(client.inherited_discovery.as_deref());
-        let hint = gtk::Label::builder()
-            .xalign(0.0)
-            .wrap(true)
-            .css_classes(["toolport-muted"])
-            .build();
-        if let Some(max) = capabilities.auto_full_max_tools_for(chosen) {
-            // Auto lists a small catalog in full for this client, then switches to search.
-            let max = max.to_string();
-            l10n::bind_label_with(&hint, move || {
-                crate::i18n::trf(
-                    "Auto: {mode}",
-                    &[(
-                        "mode",
-                        &crate::i18n::trf(
-                            "full up to {count} tools, then lazy",
-                            &[("count", &max)],
-                        ),
-                    )],
-                )
-            });
-        } else {
-            l10n::bind_label(
-                &hint,
-                match capabilities.resolve_mode(chosen) {
-                    "full" => crate::i18n::msg("Full tool list. Client per-tool permission rules need Full mode."),
-                    "grouped" => {
-                        crate::i18n::msg("Browse a server, then call tools. Client per-tool permission rules need Full mode.")
-                    }
-                    _ => crate::i18n::msg("Search, then call tools. Client per-tool permission rules need Full mode."),
-                },
-            );
-        }
-        copy.append(&hint);
-    }
-    heading.append(&copy);
-    if client.gateway_state == state::ClientGatewayState::Customized {
-        let badge = l10n::label("Customized");
-        badge.add_css_class("toolport-badge");
-        badge.set_valign(gtk::Align::Center);
-        badge.set_halign(gtk::Align::Start);
-        badge.add_css_class("review");
-        copy.append(&badge);
-    }
-    let actions = wrapping_actions();
-    if client.legacy_bearer_argv {
-        let warning = l10n::label("This older HTTP connection exposes a bearer credential in process arguments. Review migration to stdio; it stays unchanged until you confirm.");
-        warning.set_wrap(true);
-        warning.set_xalign(0.0);
-        card.append(&warning);
-        let migrate = l10n::button("Review migration to stdio");
-        let reviewed_client = client.clone();
-        let reviewed_page = page.clone();
-        migrate.connect_clicked(move |button| {
-            confirm_client_reset(&reviewed_client, button.clone(), reviewed_page.clone());
-        });
-        actions.insert(&migrate, -1);
-    }
-    if client.location_removable {
-        let remove = l10n::button("Remove location");
-        remove.set_sensitive(
-            !client.config_error && client.gateway_state == state::ClientGatewayState::Disconnected,
-        );
-        let id = client.id.clone();
-        let page = page.clone();
-        remove.connect_clicked(move |_| {
-            let Some(parent) = page.root.root().and_downcast::<gtk::Window>() else { return; };
-            let dialog = adw::MessageDialog::new(Some(&parent), Some(&crate::i18n::tr("Remove client location?")), Some(&crate::i18n::tr("This forgets the added location. Your client config and backups are kept. Auto-detected Claude folders still appear in Clients.")));
-l10n::bind_dialog_heading(&dialog, "Remove client location?");
-l10n::bind_dialog_body(&dialog, "This forgets the added location. Your client config and backups are kept. Auto-detected Claude folders still appear in Clients.");
-            dialog.add_responses(&[("cancel", "Cancel"), ("remove", "Remove location")]);
-l10n::bind_dialog_response(&dialog,"cancel","Cancel");
-l10n::bind_dialog_response(&dialog,"remove","Remove location");
-            let id = id.clone();
-            let page = page.clone();
-            dialog.connect_response(Some("remove"), move |_, _| {
-                let id = id.clone();
-                let page = page.clone();
-                gtk::glib::spawn_future_local(async move {
-                    match gtk::gio::spawn_blocking(move || crate::clients::remove_client_location(&id)).await {
-                        Ok(Ok(())) => page.refresh_with_confirmation(crate::i18n::tr("Client location removed.")),
-                        Ok(Err(error)) => page.show_error(&error),
-                        Err(_) => page.show_error(&crate::i18n::tr("Could not remove client location.")),
-                    }
-                });
-            });
-            dialog.present();
-        });
-        actions.insert(&remove, -1);
-    }
-    match client.gateway_state {
-        state::ClientGatewayState::Disconnected => {
-            let connect = l10n::button("Connect");
-            connect.add_css_class("suggested-action");
-            let client_for_connect = client.clone();
-            let page_for_connect = page.clone();
-            connect.connect_clicked(move |_| {
-                confirm_client_migrate(&client_for_connect, page_for_connect.clone());
-            });
-            actions.insert(&connect, -1);
-        }
-        state::ClientGatewayState::Customized if client_needs_reset_action(client) => {
-            let reset = l10n::button("Reset");
-            reset.add_css_class("toolport-secondary-action");
-            let client_for_reset = client.clone();
-            let page_for_reset = page.clone();
-            reset.connect_clicked(move |button| {
-                confirm_client_reset(&client_for_reset, button.clone(), page_for_reset.clone());
-            });
-            actions.insert(&reset, -1);
-        }
-        state::ClientGatewayState::Customized => {}
-        state::ClientGatewayState::Connected => {
-            actions.insert(&client_scope_menu(client.clone(), page.clone()), -1);
-            actions.insert(&connected_client_actions_menu(client.clone(), page), -1);
-        }
-    }
-    if actions.first_child().is_some() {
-        card.append(&actions);
-    }
-    card
 }
 
 fn confirm_client_migrate(client: &state::ClientView, page: ClientPage) {
@@ -13166,6 +13032,7 @@ mod tests {
             inherited_discovery: None,
             config_error: false,
             location_removable: false,
+            claude_profile: None,
         })
         .collect();
         clients.render(state::ClientSnapshot { clients: fixture_clients, profiles: Vec::new(), sessions_error: false, sessions: vec![serde_json::json!({"clientName":"Codex","clientType":"codex","sessionCount":5,"callsToday":60,"lastActiveMs":now-180000,"firstCatalogSize":1711})] });
@@ -13374,7 +13241,7 @@ mod tests {
 
     #[test]
     #[ignore = "requires an isolated GTK desktop; run in omabox"]
-    fn client_rows_keep_disconnected_copy_short_and_badges_compact() {
+    fn client_rows_keep_one_line_with_controls_on_the_right() {
         use super::*;
         adw::init().unwrap();
         let app = adw::Application::builder()
@@ -13417,53 +13284,99 @@ mod tests {
             inherited_discovery: None,
             config_error: false,
             location_removable: false,
+            claude_profile: None,
         };
-        let mut heights = Vec::new();
+        use client_rows::{client_row, RowStyle};
+        let parts = |row: &gtk::Box, with_logo: bool| {
+            let line = row.first_child().unwrap();
+            let copy = if with_logo {
+                line.first_child().unwrap().next_sibling().unwrap()
+            } else {
+                line.first_child().unwrap()
+            };
+            let title = copy.first_child().unwrap();
+            let detail = title
+                .next_sibling()
+                .unwrap()
+                .downcast::<gtk::Label>()
+                .unwrap();
+            (title, detail, copy.next_sibling())
+        };
         for state in [
             state::ClientGatewayState::Disconnected,
             state::ClientGatewayState::Customized,
             state::ClientGatewayState::Connected,
         ] {
             client.gateway_state = state;
-            let row = client_card(&client, page.clone());
-            let copy = row.first_child().unwrap().next_sibling().unwrap();
-            let name = copy.first_child().unwrap();
-            assert!(name.tooltip_text().unwrap().contains("Client id: cursor"));
-            let detail = name.next_sibling().unwrap();
-            let text = detail.clone().downcast::<gtk::Label>().unwrap().text();
-            if state == state::ClientGatewayState::Connected {
-                assert_eq!(text, "Toolport gateway · 2 other servers · stdio");
-            } else {
-                assert!(text.starts_with("2 local MCP servers"));
+            for style in [RowStyle::Line, RowStyle::Tile] {
+                let row = client_row(&client, page.clone(), style);
+                let (title, detail, controls) = parts(&row, true);
+                let name = title.first_child().unwrap();
+                assert!(name.tooltip_text().unwrap().contains("Client id: cursor"));
+                let text = detail.text();
+                if state == state::ClientGatewayState::Connected {
+                    assert!(text.starts_with("2 other servers · "), "{text}");
+                    assert!(!text.contains("local MCP"), "{text}");
+                } else {
+                    assert_eq!(text, "2 local MCP servers");
+                }
+                let controls = controls.expect("controls sit on the same line");
+                let first = controls.first_child().unwrap();
+                match state {
+                    state::ClientGatewayState::Disconnected => {
+                        let button = first.downcast::<gtk::Button>().unwrap();
+                        assert_eq!(button.label().as_deref(), Some("Connect"));
+                        assert!(button.next_sibling().is_none());
+                    }
+                    state::ClientGatewayState::Customized => {
+                        let badge = first.downcast::<gtk::Label>().unwrap();
+                        assert_eq!(badge.text(), "Customized");
+                    }
+                    state::ClientGatewayState::Connected => {
+                        assert!(!first.has_css_class("toolport-badge"));
+                    }
+                }
+                let height = row.measure(gtk::Orientation::Vertical, 880).1;
+                assert!(height < 90, "{style:?} rows stay one line: {height}");
             }
-            assert_eq!(
-                detail.next_sibling().is_some(),
-                state == state::ClientGatewayState::Connected
-            );
-            let after_copy = copy.next_sibling().unwrap();
-            if state == state::ClientGatewayState::Customized {
-                let badge = after_copy.clone().downcast::<gtk::Label>().unwrap();
-                assert_eq!(badge.text(), "Customized");
-                assert_eq!(badge.valign(), gtk::Align::Center);
-                assert_eq!(badge.halign(), gtk::Align::Start);
-            } else {
-                assert!(!after_copy.has_css_class("toolport-badge"));
-            }
-            if state == state::ClientGatewayState::Disconnected {
-                assert_eq!(after_copy.valign(), gtk::Align::Center);
-                let button = after_copy
-                    .first_child()
-                    .unwrap()
-                    .downcast::<gtk::Button>()
-                    .unwrap();
-                assert_eq!(button.label().as_deref(), Some("Connect"));
-            }
-            heights.push(row.measure(gtk::Orientation::Vertical, 880).1);
         }
-        assert!(
-            heights[0] < heights[2],
-            "Disconnected rows should be shorter: {heights:?}"
-        );
+
+        client.id = "claude-code@claude2".into();
+        client.name = "Claude Code (claude2)".into();
+        client.gateway_state = state::ClientGatewayState::Disconnected;
+        client.claude_profile = Some(crate::clients::ClaudeProfile {
+            command: Some("claude2".into()),
+            account: Some("me@home.example".into()),
+            folder: "~/.claude2".into(),
+            last_used_ms: None,
+            same_as: None,
+        });
+        let row = client_row(&client, page.clone(), RowStyle::Profile);
+        let (title, detail, _) = parts(&row, false);
+        let command = title
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Label>()
+            .unwrap();
+        assert_eq!(command.text(), "claude2");
+        assert!(command.has_css_class("monospace"));
+        let account = command
+            .next_sibling()
+            .unwrap()
+            .downcast::<gtk::Label>()
+            .unwrap();
+        assert_eq!(account.text(), "me@home.example");
+        assert_eq!(detail.text(), "~/.claude2");
+        // Outside the group the same client keeps its own name and logo.
+        let row = client_row(&client, page.clone(), RowStyle::Line);
+        let (title, _, _) = parts(&row, true);
+        let name = title
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Label>()
+            .unwrap();
+        assert_eq!(name.text(), "Claude Code (claude2)");
+        assert!(name.next_sibling().is_none());
     }
 
     #[test]
@@ -13487,6 +13400,7 @@ mod tests {
             inherited_discovery: None,
             config_error: false,
             location_removable: false,
+            claude_profile: None,
         };
         let mut registry = crate::registry::Registry::default();
         registry.profiles[0].id = "work".into();

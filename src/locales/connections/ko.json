@@ -1042,5 +1042,21 @@
   "Your local HTTP endpoint and gateway processes.": "로컬 HTTP 엔드포인트 및 게이트웨이 프로세스.",
   "Your pick": "당신의 선택",
   "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.": "서버와 클라이언트가 연결되어 있지만 Toolport에서 서버 상태를 확인할 수 없습니다. 아래 확인을 다시 시도하거나 확인하지 않고 계속하세요.",
-  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "팀의 공유 서버가 Toolport에 추가되었습니다. 로컬 및 LAN 서버는 검토하고 활성화할 때까지 꺼져 있습니다."
+  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "팀의 공유 서버가 Toolport에 추가되었습니다. 로컬 및 LAN 서버는 검토하고 활성화할 때까지 꺼져 있습니다.",
+  "{value0} profile": "프로필 {value0}개",
+  "{value0} profiles": "프로필 {value0}개",
+  "{connected} of {total} connected": "{total}개 중 {connected}개 연결됨",
+  "Claude Code profiles": "Claude Code 프로필",
+  "No claude.ai sign-in": "claude.ai 로그인 없음",
+  "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.": "{folder}도 찾았습니다: {command}와 같은 계정입니다. Claude Code는 CLAUDE_CONFIG_DIR가 이 위치를 가리킬 때만 읽으며, 일부 백그라운드 도구가 이렇게 합니다.",
+  "Show": "표시",
+  "Full tool list": "전체 도구 목록",
+  "Browse a server, then call tools": "서버를 찾아본 다음 도구 호출",
+  "Search, then call tools": "검색한 다음 도구 호출",
+  "No local MCP servers": "로컬 MCP 서버 없음",
+  "{value0} other server": "다른 서버 {value0}개",
+  "{value0} other servers": "다른 서버 {value0}개",
+  "{value0} local MCP server": "{value0} 로컬 MCP 서버",
+  "{value0} local MCP servers": "{value0} 로컬 MCP 서버",
+  "Configuration could not be read safely": "구성을 안전하게 읽을 수 없습니다."
 }

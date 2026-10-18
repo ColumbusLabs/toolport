@@ -6,6 +6,8 @@ import type { View } from "./types";
  * Agent rules and Agent activity are no longer top-level. */
 /** Window event the app sends for its Refresh shortcut while the Skills view is open. */
 export const SKILLS_REFRESH_EVENT = "toolport:skills-refresh";
+/** Window event the app sends for its Find shortcut while the Skills view is open. */
+export const SKILLS_SEARCH_EVENT = "toolport:skills-search";
 
 export const SHORTCUT_VIEWS: View[] = ["servers", "clients", "activity", "settings"];
 

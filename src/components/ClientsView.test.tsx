@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetectedClient } from "@/lib/types";
+import type { DetectedClient, McpServer } from "@/lib/types";
 import { ClientsView } from "./ClientsView";
 import { getClientSessions } from "@/lib/api";
 vi.mock("@/lib/api", () => ({ getClientSessions: vi.fn() }));
@@ -22,6 +22,10 @@ function client(overrides: Partial<DetectedClient> = {}): DetectedClient {
     error: null,
     ...overrides,
   };
+}
+
+function server(name: string, command: string): McpServer {
+  return { name, transport: "stdio", command, args: [], envKeys: [], url: null };
 }
 
 describe("ClientsView", () => {
@@ -90,6 +94,228 @@ describe("ClientsView", () => {
     expect(rows[0]).toHaveTextContent("Connected");
     expect(rows[1]).toHaveTextContent("Cursor");
     expect(rows[1]).toHaveTextContent("Ready to connect");
+  });
+
+  it("lists Claude Code profiles under one entry with copies behind a note", async () => {
+    const onSelectClient = vi.fn();
+    const profile = (
+      id: string,
+      claudeProfile: NonNullable<DetectedClient["claudeProfile"]>,
+      overrides: Partial<DetectedClient> = {},
+    ) =>
+      client({
+        id,
+        name: `Claude Code (${id})`,
+        configPath: `/home/me/${claudeProfile.folder.slice(2)}/.claude.json`,
+        claudeProfile,
+        ...overrides,
+      });
+    const renderGroup = () =>
+      render(
+        <ClientsView
+          clients={[
+            profile("claude-code@claude3", {
+              command: "claude3",
+              account: "third@example.com",
+              folder: "~/.claude3",
+              lastUsedMs: null,
+              sameAs: null,
+            }),
+            profile(
+              "claude-code",
+              {
+                command: "claude",
+                account: "me@example.com",
+                folder: "~/.claude.json",
+                lastUsedMs: null,
+                sameAs: null,
+              },
+              { gatewayInstalled: true, entryState: "managed" },
+            ),
+            profile("claude-code@claude-api", {
+              command: null,
+              account: null,
+              folder: "~/.claude-api",
+              lastUsedMs: Date.now(),
+              sameAs: null,
+            }),
+            profile("claude-code@claude", {
+              command: null,
+              account: "me@example.com",
+              folder: "~/.claude",
+              lastUsedMs: null,
+              sameAs: "claude-code",
+            }),
+            client({ id: "cursor", name: "Cursor" }),
+          ]}
+          registry={null}
+          onSelectClient={onSelectClient}
+        />,
+      );
+    const { unmount } = renderGroup();
+
+    const group = screen.getByRole("button", { name: "Claude Code profiles" });
+    expect(group).toHaveAttribute("aria-expanded", "true");
+    expect(group).toHaveTextContent("3 profiles");
+    expect(group).toHaveTextContent("1 of 3 connected");
+    // The group sits with the connected clients; Available counts only Cursor.
+    expect(screen.getByText("Available to connect").parentElement).toHaveTextContent("1");
+    const rows = screen
+      .getAllByRole("button")
+      .filter((row) => /Claude Code|claude/.test(row.textContent ?? ""));
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Claude Code"),
+      expect.stringMatching(
+        /^claudeme@example\.com~\/\.claude\.json · Search, then call tools/,
+      ),
+      expect.stringMatching(/^claude3third@example\.com~\/\.claude3Ready to connect/),
+      expect.stringMatching(/^~\/\.claude-apiNo claude\.ai sign-inLast active just now/),
+    ]);
+    expect(
+      screen.getByText(/Also found ~\/\.claude: the same account as claude\./),
+    ).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /^~\/\.claude\s*me@example/ }),
+    );
+    expect(onSelectClient).toHaveBeenCalledWith("claude-code@claude");
+    await userEvent.click(screen.getByRole("button", { name: "Hide" }));
+    expect(
+      screen.queryByRole("button", { name: /^~\/\.claude\s*me@example/ }),
+    ).toBeNull();
+
+    await userEvent.click(group);
+    expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("claude3")).toBeNull();
+    // Opening a client and coming back keeps the group as it was left.
+    unmount();
+    renderGroup();
+    expect(screen.getByRole("button", { name: "Claude Code profiles" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Claude Code profiles" }));
+  });
+
+  it("shows one real profile as an ordinary row with its copy behind the note", () => {
+    render(
+      <ClientsView
+        clients={[
+          client({
+            id: "claude-code",
+            name: "Claude Code",
+            claudeProfile: {
+              command: "claude",
+              account: "me@example.com",
+              folder: "~/.claude.json",
+              lastUsedMs: null,
+              sameAs: null,
+            },
+          }),
+          client({
+            id: "claude-code@claude",
+            name: "Claude Code (claude)",
+            claudeProfile: {
+              command: null,
+              account: "me@example.com",
+              folder: "~/.claude",
+              lastUsedMs: null,
+              sameAs: "claude-code",
+            },
+          }),
+          client({
+            id: "claude-code@claude2",
+            name: "Claude Code (claude2)",
+            error: "invalid JSON",
+          }),
+        ]}
+        registry={null}
+        onSelectClient={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Claude Code profiles" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /^Claude Code\s*No local MCP/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Also found ~\/\.claude: the same account as claude\./),
+    ).toBeVisible();
+    expect(screen.getByText("Available to connect").parentElement).toHaveTextContent("2");
+  });
+
+  it("keeps an unconnected Claude Code group with the clients available to connect", () => {
+    render(
+      <ClientsView
+        clients={[
+          client({
+            id: "claude-code",
+            name: "Claude Code",
+            claudeProfile: {
+              command: "claude",
+              account: null,
+              folder: "~/.claude.json",
+              lastUsedMs: null,
+              sameAs: null,
+            },
+          }),
+          client({
+            id: "claude-code@claude2",
+            name: "Claude Code (claude2)",
+            claudeProfile: {
+              command: "claude2",
+              account: null,
+              folder: "~/.claude2",
+              lastUsedMs: null,
+              sameAs: null,
+            },
+          }),
+        ]}
+        registry={null}
+        onSelectClient={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Connected to Toolport")).toBeNull();
+    expect(screen.getByText("Available to connect").parentElement).toHaveTextContent("2");
+    expect(
+      screen.getByRole("button", { name: "Claude Code profiles" }),
+    ).toHaveTextContent("0 of 2 connected");
+  });
+
+  it("describes each client by its servers and discovery, with the config path on hover", () => {
+    render(
+      <ClientsView
+        clients={[
+          client({
+            servers: [server("github", "npx")],
+          }),
+          client({
+            id: "codex",
+            name: "Codex",
+            gatewayInstalled: true,
+            entryState: "managed",
+            discovery: {
+              autoMode: "lazy",
+              autoFullMaxTools: 120,
+              nativeToolSearch: true,
+              toolsListChanged: null,
+              evidence: "test",
+            },
+            servers: [server("toolport", "toolport-gateway"), server("github", "npx")],
+          }),
+        ]}
+        registry={null}
+        onSelectClient={vi.fn()}
+      />,
+    );
+
+    const cursor = screen.getByText("1 local MCP server");
+    expect(cursor).toHaveAttribute("title", expect.stringContaining("/tmp/cursor.json"));
+    expect(
+      screen.getByText("1 other server · Auto: full up to 120 tools, then lazy"),
+    ).toBeInTheDocument();
   });
 
   it("does not describe a customized gateway entry as connected", () => {

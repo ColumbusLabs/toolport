@@ -1042,5 +1042,21 @@
   "Your local HTTP endpoint and gateway processes.": "您的本機 HTTP 端點和 閘道 程式。",
   "Your pick": "你的選擇",
   "Your servers and client are connected, but Toolport could not verify server health. Retry the check below or continue without verification.": "您的伺服器和使用者端已連線，但 Toolport 無法驗證伺服器運作狀況。重試下面的檢查或繼續而不進行驗證。",
-  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "您團隊的共享伺服器已新增至 Toolport。本機和 LAN 伺服器將保持關閉狀態，直到您檢查並啟用它們。"
+  "Your team's shared servers were added to Toolport. Local and LAN servers stay off until you review and enable them.": "您團隊的共享伺服器已新增至 Toolport。本機和 LAN 伺服器將保持關閉狀態，直到您檢查並啟用它們。",
+  "{value0} profile": "{value0} 個設定檔",
+  "{value0} profiles": "{value0} 個設定檔",
+  "{connected} of {total} connected": "已連線 {connected}/{total} 個",
+  "Claude Code profiles": "Claude Code 設定檔",
+  "No claude.ai sign-in": "未登入 claude.ai",
+  "Also found {folder}: the same account as {command}. Claude Code only reads it when CLAUDE_CONFIG_DIR points there, as some background tools do.": "另外找到 {folder}：與 {command} 是同一個帳戶。只有 CLAUDE_CONFIG_DIR 指向這裡時 Claude Code 才會讀取它，有些背景工具會這麼做。",
+  "Show": "顯示",
+  "Full tool list": "完整工具清單",
+  "Browse a server, then call tools": "先瀏覽伺服器，再呼叫工具",
+  "Search, then call tools": "先搜尋，再呼叫工具",
+  "No local MCP servers": "沒有本機 MCP 伺服器",
+  "{value0} other server": "{value0} 個其他伺服器",
+  "{value0} other servers": "{value0} 個其他伺服器",
+  "{value0} local MCP server": "{value0} 個本機 MCP 伺服器",
+  "{value0} local MCP servers": "{value0} 個本機 MCP 伺服器",
+  "Configuration could not be read safely": "無法安全讀取設定"
 }
